@@ -833,10 +833,11 @@ auto
 			=	0uz
 		;		nRequiredIndex
 			<	vRequiredHeaders.size()
-		;	++	nRequiredIndex
+		;	// may reset in loop
 		)
 	{
-
+		auto const& rRequiredHeader = vRequiredHeaders[nRequiredIndex];
+		++nRequiredIndex;
 		for	(	auto
 					nDependentOnIndex
 				=	0uz
@@ -845,8 +846,6 @@ auto
 			;	// may erase in loop
 			)
 		{
-			//	memory location may change inside the loop
-			auto const& rRequiredHeader = vRequiredHeaders[nRequiredIndex];
 			auto const& rDependentOnHeader = vDependentOnHeaders[nDependentOnIndex];
 
 			if	(rDependentOnHeader.IsHeaderOnly())
@@ -895,40 +894,39 @@ auto
 				continue;
 			}
 
-			// add to required headers
-			if	(	not
-					Contains
-					(	vRequiredHeaders
-					,	rDependentOnHeader
-					)
+
+			//	add dependencies of new required header
+			for (	auto const
+					&	rDependentOnDependency
+				:	rDependentOnDependencies
 				)
+
 			{
-				vRequiredHeaders.push_back(rDependentOnHeader);
-				cout << rDependentOnHeader;
-
-				//	add dependencies of new required header
-				for (	auto const
-						&	rDependentOnDependency
-					:	rDependentOnDependencies
-					)
-
-				{
-					if	(	//	dont add headers in other directories
-							rDependentOnDependency.native().starts_with(SourceDir.c_str())
-						and	(	not
-								Contains
-								(	vDependentOnHeaders
-								,	rDependentOnDependency
-								)
-							)
+				if	(	//	dont add headers in other directories
+						rDependentOnDependency.native().starts_with(SourceDir.c_str())
+					and	not
+						Contains
+						(	vDependentOnHeaders
+						,	rDependentOnDependency
 						)
-					{
-						vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rDependentOnDependency}));
-					}
+					and	not
+						Contains
+						(	vRequiredHeaders
+						,	rDependentOnDependency
+						)
+					)
+				{
+					vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rDependentOnDependency}));
 				}
 			}
-			// DependentOn header now in required headers
-			SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
+
+			// add to required headers
+			cout << rDependentOnHeader;
+			vRequiredHeaders.push_back( SwapOutByIndex(vDependentOnHeaders, nDependentOnIndex));
+
+			// restart loop accounting for new required header
+			nRequiredIndex = 0;
+			break;
 		}
 	}
 
