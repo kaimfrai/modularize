@@ -18,6 +18,59 @@ using ::std::string;
 using ::std::begin;
 using ::std::end;
 
+path SourceDir;
+path BinaryDir;
+
+template
+	<	typename
+			t_tContainer
+	>
+auto inline
+(	Find
+)	(	t_tContainer
+		&	i_rContainer
+	,	typename t_tContainer::value_type const
+		&	i_rValue
+	)
+{	return
+	::std::find
+	(	begin(i_rContainer)
+	,	end(i_rContainer)
+	,	i_rValue
+	);
+}
+
+template
+	<	typename
+			t_tContainer
+	>
+auto inline
+(	Contains
+)	(	t_tContainer const
+		&	i_rContainer
+	,	typename t_tContainer::value_type const
+		&	i_rValue
+	)
+->	bool
+{
+	auto const
+		vBegin
+	=	begin(i_rContainer)
+	;
+	auto const
+		vEnd
+	=	end(i_rContainer)
+	;
+	return
+		vEnd
+	!=	::std::find
+		(	vBegin
+		,	vEnd
+		,	i_rValue
+		)
+	;
+}
+
 auto constexpr
 (	IsHeader
 )	(	string_view
@@ -91,14 +144,30 @@ auto inline
 	return
 	SwapOut
 	(	i_rPaths
-	,	::std::find
-		(	begin(i_rPaths)
-		,	end(i_rPaths)
+	,	Find
+		(	i_rPaths
 		,	i_rSwapOut
 		)
 	);
 }
 
+template<typename t_tPath>
+auto inline
+(	SwapOutByIndex
+)	(	vector<t_tPath>
+		&	i_rPaths
+	,	::std::size_t
+			i_nIndex
+	)
+->	t_tPath
+{
+	return
+	SwapOut
+	(	i_rPaths
+	,	begin(i_rPaths)
+	+	i_nIndex
+	);
+}
 
 template
 	<	typename
@@ -342,7 +411,7 @@ struct
 		)
 	->	decltype(i_rStream)
 	{
-		return i_rStream << i_rHeader.m_vPath << '\n';
+		return i_rStream << i_rHeader.m_vPath.lexically_relative(SourceDir) << '\n';
 	}
 };
 
@@ -519,7 +588,8 @@ struct
 		)
 	->	decltype(i_rStream)
 	{
-		i_rStream << i_rHeader.m_vPath << '\n';
+
+		i_rStream << i_rHeader.m_vPath.lexically_relative(SourceDir) << '\n';
 		if	(	not
 				i_rHeader.IsHeaderOnly()
 			)
@@ -555,7 +625,7 @@ struct
 	)	(	::std::size_t
 				i_nIndex
 		)	const&
-	->	path const&
+	->	t_tPath const&
 	{
 		return vFiles[i_nIndex];
 	}
@@ -671,6 +741,8 @@ auto
 	return i_rPath;
 }
 
+
+
 auto
 (	main
 )	(	int argc
@@ -686,15 +758,15 @@ auto
 		return EXIT_FAILURE;
 	}
 
-	path const vSourceDir = EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
-	path const vBinaryDir = EnsureDirectory(vSourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
-	path const vRootHeaderPath = EnsureHeader(vSourceDir / string_view{argv[3]}, "Relative header required as third argument!");
+	SourceDir = EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
+	BinaryDir = EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
+	path const vRootHeaderPath = EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
 
 
 	FileStore
 		vAllFiles
-	{	vSourceDir
-	,	vBinaryDir
+	{	SourceDir
+	,	BinaryDir
 	};
 	auto const vRootHeader = SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{vRootHeaderPath});
 
@@ -709,21 +781,21 @@ auto
 		::std::exit(EXIT_FAILURE);
 	}
 
-	cout << "Required files:\n\n";
+	cout << "Required files:\n";
 	cout << vRootHeader;
 
 	::std::vector<HeaderFile>
-		vDependentHeaders
+		vDependentOnHeaders
 	;
 
 	auto const& rRootDependencies = vRootHeader.m_vImplementation.m_vDependency.m_vDependencies;
-	vDependentHeaders.reserve(rRootDependencies.size());
+	vDependentOnHeaders.reserve(rRootDependencies.size());
 	for	(	auto const
 			&	rHeaderPath
 		:	rRootDependencies
 		)
 	{
-		vDependentHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rHeaderPath}));
+		vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rHeaderPath}));
 	}
 
 	::std::vector<HeaderFile>
@@ -737,21 +809,21 @@ auto
 
 	//	remove headers from other directories
 	for	(	auto
-				nDependentIndex
+				nDependentOnIndex
 			=	0uz
-		;		nDependentIndex
-			<	vDependentHeaders.size()
+		;		nDependentOnIndex
+			<	vDependentOnHeaders.size()
 		;	// may erase in loop
 		)
 	{
-		auto const& rDependentHeader = vDependentHeaders[nDependentIndex];
-		if	(rDependentHeader.m_vPath.native().starts_with(vSourceDir.c_str()))
+		auto const& rDependentOnHeader = vDependentOnHeaders[nDependentOnIndex];
+		if	(rDependentOnHeader.m_vPath.native().starts_with(SourceDir.c_str()))
 		{
-			++nDependentIndex;
+			++nDependentOnIndex;
 		}
 		else
 		{
-			SwapOut(vDependentHeaders, begin(vDependentHeaders) + nDependentIndex);
+			SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
 		}
 	}
 
@@ -766,113 +838,213 @@ auto
 	{
 
 		for	(	auto
-					nDependentIndex
+					nDependentOnIndex
 				=	0uz
-			;		nDependentIndex
-				<	vDependentHeaders.size()
+			;		nDependentOnIndex
+				<	vDependentOnHeaders.size()
 			;	// may erase in loop
 			)
 		{
 			//	memory location may change inside the loop
 			auto const& rRequiredHeader = vRequiredHeaders[nRequiredIndex];
-			auto const& rDependentHeader = vDependentHeaders[nDependentIndex];
+			auto const& rDependentOnHeader = vDependentOnHeaders[nDependentOnIndex];
 
-			if	(rDependentHeader.IsHeaderOnly())
+			if	(rDependentOnHeader.IsHeaderOnly())
 			{
-				auto const vDependentHeader = SwapOut(vDependentHeaders, begin(vDependentHeaders) + nDependentIndex);
+				auto const vDependentOnHeader = SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
 				// header only not handled
-				if	(	vDependentHeader.m_vPath.native().starts_with(vSourceDir.c_str())
-					and	(	end(vHeaderOnly)
-						==	::std::find
-							(	begin(vHeaderOnly)
-							,	end(vHeaderOnly)
-							,	vDependentHeader
+				if	(	vDependentOnHeader.m_vPath.native().starts_with(SourceDir.c_str())
+					and	(	not
+							Contains
+							(	vHeaderOnly
+							,	vDependentOnHeader
 							)
 						)
 					)
 				{
-					vHeaderOnly.push_back(::std::move(vDependentHeader));
+					vHeaderOnly.push_back(::std::move(vDependentOnHeader));
 				}
 				continue;
 			}
 
-			if (not rDependentHeader.HasDependency())
+			if (not rDependentOnHeader.HasDependency())
 			{
-				cerr << "No dependency file found for " << rDependentHeader.m_vImplementation;
-				SwapOut(vDependentHeaders, begin(vDependentHeaders) + nDependentIndex);
+				cerr << "No dependency file found for " << rDependentOnHeader.m_vImplementation;
+				SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
 				continue;
 			}
 
 			auto const
-			&	rDependentDependencies
-			=	rDependentHeader.GetDependencies()
+			&	rDependentOnDependencies
+			=	rDependentOnHeader.GetDependencies()
 			;
 
 			// not a cyclic dependency (yet)
 			if	(	::std::none_of
-					(	begin(rDependentDependencies)
-					,	end(rDependentDependencies)
+					(	begin(rDependentOnDependencies)
+					,	end(rDependentOnDependencies)
 					,	[	&rRequiredHeader
 						]	(	path const
-								&	i_rDependentDependency
+								&	i_rDependentOnDependency
 							)
-						{	return i_rDependentDependency == rRequiredHeader.m_vPath;	}
+						{	return i_rDependentOnDependency == rRequiredHeader.m_vPath;	}
 					)
 				)
 			{
-				++nDependentIndex;
+				++nDependentOnIndex;
 				continue;
 			}
 
 			// add to required headers
-			if	(	end(vRequiredHeaders)
-				==	::std::find
-					(	begin(vRequiredHeaders)
-					,	end(vRequiredHeaders)
-					,	rDependentHeader
+			if	(	not
+					Contains
+					(	vRequiredHeaders
+					,	rDependentOnHeader
 					)
 				)
 			{
-				vRequiredHeaders.push_back(rDependentHeader);
-				cout << rDependentHeader;
+				vRequiredHeaders.push_back(rDependentOnHeader);
+				cout << rDependentOnHeader;
 
 				//	add dependencies of new required header
 				for (	auto const
-						&	rDependentDependency
-					:	rDependentDependencies
+						&	rDependentOnDependency
+					:	rDependentOnDependencies
 					)
 
 				{
 					if	(	//	dont add headers in other directories
-							rDependentDependency.native().starts_with(vSourceDir.c_str())
-						and	(	end(vDependentHeaders)
-							==	::std::find
-								(	begin(vDependentHeaders)
-								,	end(vDependentHeaders)
-								,	rDependentDependency
+							rDependentOnDependency.native().starts_with(SourceDir.c_str())
+						and	(	not
+								Contains
+								(	vDependentOnHeaders
+								,	rDependentOnDependency
 								)
 							)
 						)
 					{
-						vDependentHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rDependentDependency}));
+						vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rDependentOnDependency}));
 					}
 				}
 			}
-			// dependent header now in required headers
-			SwapOut(vDependentHeaders, begin(vDependentHeaders) + nDependentIndex);
+			// DependentOn header now in required headers
+			SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
 		}
 	}
 
-	cout << "\nDependent files:\n";
+	cout << "\nFile dependencies:\n";
 	for	(	auto const
 			&	rLeftOver
-		:	vDependentHeaders
+		:	vDependentOnHeaders
 		)
 	{
 		cout << rLeftOver;
 	}
 
-	cout << "\nDependent header only files:\n";
+
+	cout << "\nInverse file dependencies:\n";
+	for	(	auto
+				nLeftOverIndex
+			=	0uz
+		;		nLeftOverIndex
+			<	vAllFiles.vHeaderFiles.size()
+		;
+		)
+	{
+		auto const& rDependencies = vAllFiles.vHeaderFiles[nLeftOverIndex].GetDependencies();
+		if	(	::std::any_of
+				(	begin(vRequiredHeaders)
+				,	end(vRequiredHeaders)
+				,	[	&rDependencies
+					]	(	HeaderFile const
+							&	i_rRequired
+						)
+					{
+						return Contains(rDependencies, i_rRequired.m_vPath);
+					}
+				)
+			)
+		{
+			cout << SwapOutByIndex(vAllFiles.vHeaderFiles.vFiles, nLeftOverIndex);
+		}
+		else
+			++nLeftOverIndex;
+	}
+
+	cout << "\nInverse implementation files without header dependencies:\n";
+	for	(	auto
+				nLeftOverIndex
+			=	0uz
+		;		nLeftOverIndex
+			<	vAllFiles.vImplementationFiles.size()
+		;
+		)
+	{
+		auto const& rDependencies = vAllFiles.vImplementationFiles[nLeftOverIndex].GetDependencies();
+		if	(	::std::any_of
+				(	begin(vRequiredHeaders)
+				,	end(vRequiredHeaders)
+				,	[	&rDependencies
+					]	(	HeaderFile const
+							&	i_rRequired
+						)
+					{
+						return Contains(rDependencies, i_rRequired.m_vPath);
+					}
+				)
+			)
+		{
+			cout << SwapOutByIndex(vAllFiles.vImplementationFiles.vFiles, nLeftOverIndex);
+		}
+		else
+			++nLeftOverIndex;
+	}
+
+	cout << "\nExclusive header only file dependencies:\n";
+	for	(	auto
+				nLeftOverIndex
+			=	0uz
+		;		nLeftOverIndex
+			<	vHeaderOnly.size()
+		;
+		)
+	{
+		auto const
+			fDependsOnHeader
+		=	[	&vHeaderPath
+			=	vHeaderOnly[nLeftOverIndex].m_vPath
+			]	(	auto const
+					&	i_rLeftOverFile
+				)
+			{
+				return Contains(i_rLeftOverFile.GetDependencies(), vHeaderPath);
+			}
+		;
+
+		if	(	::std::none_of
+				(	begin(vDependentOnHeaders)
+				,	end(vDependentOnHeaders)
+				,	fDependsOnHeader
+				)
+			and	::std::none_of
+				(	begin(vAllFiles.vHeaderFiles)
+				,	end(vAllFiles.vHeaderFiles)
+				,	fDependsOnHeader
+				)
+			and	::std::none_of
+				(	begin(vAllFiles.vImplementationFiles)
+				,	end(vAllFiles.vImplementationFiles)
+				,	fDependsOnHeader
+				)
+			)
+		{
+			cout << SwapOutByIndex(vHeaderOnly, nLeftOverIndex);
+		}
+		else
+			++nLeftOverIndex;
+	}
+
+	cout << "\nHeader only file dependencies:\n";
 	for	(	auto const
 			&	rLeftOver
 		:	vHeaderOnly
@@ -890,7 +1062,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	cout << "\nImplementation files without header:\n";
+	cout << "\nLeftover implementation files without header:\n";
 	for	(	auto const
 			&	rLeftOver
 		:	vAllFiles.vImplementationFiles
