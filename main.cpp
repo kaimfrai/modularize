@@ -939,7 +939,9 @@ auto
 		cout << rLeftOver;
 	}
 
-
+	::std::vector<HeaderFile>
+		vInverseFileDependencies
+	;
 	cout << "\nInverse file dependencies:\n";
 	for	(	auto
 				nLeftOverIndex
@@ -950,20 +952,33 @@ auto
 		)
 	{
 		auto const& rDependencies = vAllFiles.vHeaderFiles[nLeftOverIndex].GetDependencies();
+		auto const
+			fIsDependency
+		=	[	&rDependencies
+			]	(	HeaderFile const
+					&	i_rRequired
+				)
+			{
+				return Contains(rDependencies, i_rRequired.m_vPath);
+			}
+		;
 		if	(	::std::any_of
 				(	begin(vRequiredHeaders)
 				,	end(vRequiredHeaders)
-				,	[	&rDependencies
-					]	(	HeaderFile const
-							&	i_rRequired
-						)
-					{
-						return Contains(rDependencies, i_rRequired.m_vPath);
-					}
+				,	fIsDependency
+				)
+			or	::std::any_of
+				(	begin(vInverseFileDependencies)
+				,	end(vInverseFileDependencies)
+				,	fIsDependency
 				)
 			)
 		{
-			cout << SwapOutByIndex(vAllFiles.vHeaderFiles.vFiles, nLeftOverIndex);
+			auto vFile = SwapOutByIndex(vAllFiles.vHeaderFiles.vFiles, nLeftOverIndex);
+			cout << vFile;
+			vInverseFileDependencies.push_back(::std::move(vFile));
+			//	restart loop
+			nLeftOverIndex = 0uz;
 		}
 		else
 			++nLeftOverIndex;
@@ -1051,7 +1066,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	cout << "\nLeftover files:\n";
+	cout << "\nUnrelated files:\n";
 	for	(	auto const
 			&	rLeftOver
 		:	vAllFiles.vHeaderFiles
@@ -1060,7 +1075,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	cout << "\nLeftover implementation files without header:\n";
+	cout << "\nUnrelated implementation files without header:\n";
 	for	(	auto const
 			&	rLeftOver
 		:	vAllFiles.vImplementationFiles
