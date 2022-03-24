@@ -307,17 +307,13 @@ struct
 		;
 		// discard first line
 		getline(vFile, vLine);
-		// second line is implementation
-		getline(vFile, vLine);
-		::std::stringstream
-			vColumn
-		{	vLine
-		};
-		m_vImplementation = ReadEntry(vColumn);
 
 		while(getline(vFile, vLine))
 		{
-			vColumn.str(vLine);
+			::std::stringstream
+				vColumn
+			{	vLine
+			};
 			auto const
 				vPath
 			=	ReadEntry
@@ -325,7 +321,17 @@ struct
 				)
 			;
 			if	(not vPath.empty())
-				m_vDependencies.push_back(vPath);
+			{
+				if	(IsImplementation(vPath.c_str()))
+				{
+					if	(not m_vImplementation.empty())
+						cerr << "\nFound more than one implementation in " << m_vPath << '\n';
+					else
+						m_vImplementation = vPath;
+				}
+				else
+					m_vDependencies.push_back(vPath);
+			}
 		}
 	}
 };
@@ -930,7 +936,7 @@ auto
 		}
 	}
 
-	cout << "\nFile dependencies:\n";
+	cout << "\nPure file dependencies:\n";
 	for	(	auto const
 			&	rLeftOver
 		:	vDependentOnHeaders
@@ -984,7 +990,7 @@ auto
 			++nLeftOverIndex;
 	}
 
-	cout << "\nInverse implementation files without header dependencies:\n";
+	cout << "\nInverse implementation file dependencies without header:\n";
 	for	(	auto
 				nLeftOverIndex
 			=	0uz
