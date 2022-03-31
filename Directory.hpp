@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string_view>
+#include <utility>
 
 namespace
 	Modularize
@@ -148,4 +149,82 @@ namespace
 		,	i_vErrorMessage
 		);
 	}
+
+	template
+		<	typename
+				t_tOutStream
+		>
+	class
+		DirectoryRelativeStream
+	{
+		Directory
+			m_vDirectory
+		;
+
+		t_tOutStream
+		&	m_rOut
+		;
+	public:
+		explicit(true)
+		(	DirectoryRelativeStream
+		)	(	Directory const
+				&	i_rDirectory
+			,	t_tOutStream
+				&	i_rOut
+			)
+		:	m_vDirectory
+			{	i_rDirectory
+			}
+		,	m_rOut
+			{	i_rOut
+			}
+		{}
+
+		friend auto
+		(	operator <<
+		)	(	DirectoryRelativeStream
+				&	i_rStream
+			,	auto const
+				&	i_rValue
+			)
+		->	DirectoryRelativeStream&
+		{
+			i_rStream.m_rOut << i_rValue;
+			return i_rStream;
+		}
+
+		friend auto
+		(	operator <<
+		)	(	DirectoryRelativeStream
+				&	i_rStream
+			,	auto
+				(	*
+					i_fManipulator
+				)	(	t_tOutStream
+						&
+					)
+				->	t_tOutStream&
+			)
+		->	DirectoryRelativeStream&
+		{
+			i_rStream.m_rOut << i_fManipulator;
+			return i_rStream;
+		}
+
+		friend auto
+		(	operator <<
+		)	(	DirectoryRelativeStream
+				&	i_rStream
+			,	::std::filesystem::path const
+				&	i_rPath
+			)
+		->	DirectoryRelativeStream&
+		{
+				i_rStream.m_rOut
+			<<	i_rStream.m_vDirectory.RelativePath
+				(	i_rPath
+				);
+			return i_rStream;
+		}
+	};
 }

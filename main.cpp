@@ -10,15 +10,10 @@
 
 using ::std::filesystem::path;
 using ::std::string_view;
-using ::std::cerr;
-using ::std::cout;
 using ::std::endl;
 using ::std::string;
 using ::std::begin;
 using ::std::end;
-
-Modularize::Directory SourceDir("/");
-Modularize::Directory BinaryDir("/");
 
 auto constexpr
 (	IsHeader
@@ -168,7 +163,7 @@ struct
 				if	(IsImplementation(vPath.c_str()))
 				{
 					if	(not m_vImplementation.empty())
-						cerr << "\nFound more than one implementation in " << m_vPath << '\n';
+						::std::cerr << "\nFound more than one implementation in " << m_vPath << '\n';
 					else
 						m_vImplementation = vPath;
 				}
@@ -251,14 +246,14 @@ struct
 
 	friend auto
 	(	operator <<
-	)	(	auto
+	)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
 			&	i_rStream
 		,	ImplementationFile const
 			&	i_rHeader
 		)
 	->	decltype(i_rStream)
 	{
-		return i_rStream << SourceDir.RelativePath(i_rHeader.m_vPath) << '\n';
+		return i_rStream << i_rHeader.m_vPath << '\n';
 	}
 };
 
@@ -420,9 +415,10 @@ struct
 		return m_vImplementation.SetDependency(i_rDependencyFiles);
 	}
 
+
 	friend auto
 	(	operator <<
-	)	(	auto
+	)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
 			&	i_rStream
 		,	HeaderFile const
 			&	i_rHeader
@@ -430,7 +426,7 @@ struct
 	->	decltype(i_rStream)
 	{
 
-		i_rStream << SourceDir.RelativePath(i_rHeader.m_vPath) << '\n';
+		i_rStream << i_rHeader.m_vPath << '\n';
 		if	(	not
 				i_rHeader.IsHeaderOnly()
 			)
@@ -522,7 +518,7 @@ auto
 {
 	if (not exists(i_rPath) or not IsHeader(i_rPath.c_str()))
 	{
-		cerr << i_sErrorMessage << endl;
+		::std::cerr << i_sErrorMessage << endl;
 		::std::exit(EXIT_FAILURE);
 	}
 	return i_rPath;
@@ -541,13 +537,15 @@ auto
 {
 	if (argc < 4)
 	{
-		cerr << "Path to source directory, binary directory, and relative header required as arguments!" << endl;
+		::std::cerr << "Path to source directory, binary directory, and relative header required as arguments!" << endl;
 		return EXIT_FAILURE;
 	}
 
-	SourceDir = Modularize::EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
-	BinaryDir = Modularize::EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
+
+	Modularize::Directory const SourceDir = Modularize::EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
+	Modularize::Directory const BinaryDir = Modularize::EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
 	path const vRootHeaderPath = EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
+
 
 
 	FileStore
@@ -555,11 +553,23 @@ auto
 	{	SourceDir
 	,	BinaryDir
 	};
+	Modularize::DirectoryRelativeStream
+		cerr
+	{	SourceDir
+	,	::std::cerr
+	};
+
+	Modularize::DirectoryRelativeStream
+		cout
+	{	SourceDir
+	,	::std::cout
+	};
+
 	auto const vRootHeader = vAllFiles.vHeaderFiles.SwapOut(HeaderFile{vRootHeaderPath});
 
 	if	(vRootHeader.IsHeaderOnly())
 	{
-		cerr << "Could not find an implementation file for " << vRootHeader << endl;
+		cerr << "Could not find an implementation file for " << vRootHeader << ::std::endl;
 		::std::exit(EXIT_FAILURE);
 	}
 	if	(not vRootHeader.HasDependency())
