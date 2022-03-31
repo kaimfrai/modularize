@@ -9,7 +9,7 @@
 namespace
 	Modularize
 {
-	using CheckFileFunc = auto(*)(::std::string_view) -> bool;
+	using CheckFileFunc = auto(*)(::std::filesystem::path const&) -> bool;
 	template
 		<	typename
 				t_tFile
@@ -86,7 +86,7 @@ namespace
 			)	&
 		->	bool
 		{
-			bool const bAdd = t_fCheckFile(i_rEntry.c_str());
+			bool const bAdd = t_fCheckFile(i_rEntry);
 			if	(bAdd)
 				this->push_back(i_rEntry);
 			return bAdd;

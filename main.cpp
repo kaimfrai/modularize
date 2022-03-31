@@ -1,6 +1,9 @@
 
 #include "CheckedFileStore.hpp"
+#include "DependencyFile.hpp"
 #include "Directory.hpp"
+#include "HeaderFile.hpp"
+#include "ImplementationFile.hpp"
 #include "UnorderedVector.hpp"
 
 #include <iostream>
@@ -17,402 +20,18 @@ using ::std::string;
 using ::std::begin;
 using ::std::end;
 
-auto constexpr
-(	IsHeader
-)	(	string_view
-			i_vPath
-	)
-->	bool
-{	return
-	(	i_vPath.ends_with(".h")
-	or	i_vPath.ends_with(".hpp")
-	);
-}
-
-auto constexpr
-(	IsImplementation
-)	(	string_view
-			i_vPath
-	)
-->	bool
-{	return
-	(	i_vPath.ends_with(".c")
-	or	i_vPath.ends_with(".cpp")
-	);
-}
-
-auto constexpr
-(	IsDependency
-)	(	string_view
-			i_vPath
-	)
-->	bool
-{	return
-		i_vPath.ends_with(".o.d")
-	;
-}
-
-
-struct
-	DepFile
-{
-	path m_vPath;
-	path m_vImplementation;
-	Modularize::UnorderedVector<path>
-		m_vDependencies
-	;
-
-	friend auto inline
-	(	operator <=>
-	)	(	DepFile const
-			&	i_rLeft
-		,	DepFile const
-			&	i_rRight
-		)
-	{
-		return i_rLeft.m_vPath <=> i_rRight.m_vPath;
-	}
-
-	static auto
-	(	ReadEntry
-	)	(	::std::stringstream
-			&	i_rLine
-		)
-	->	path
-	{
-		string
-			vPath
-		;
-		while(getline(i_rLine, vPath, ' '))
-		{
-			if	(vPath.empty() or vPath[0] == '\\')
-				continue;
-
-			return path{vPath};
-		}
-		return path{};
-	}
-
-	DepFile() = default;
-	DepFile(path const& i_rPath)
-	:	m_vPath{i_rPath}
-	{
-		::std::ifstream
-			vFile = i_rPath
-		;
-		string
-			vLine
-		;
-		// discard first line
-		getline(vFile, vLine);
-
-		while(getline(vFile, vLine))
-		{
-			::std::stringstream
-				vColumn
-			{	vLine
-			};
-			auto const
-				vPath
-			=	ReadEntry
-				(	vColumn
-				)
-			;
-			if	(not vPath.empty())
-			{
-				if	(IsImplementation(vPath.c_str()))
-				{
-					if	(not m_vImplementation.empty())
-						::std::cerr << "\nFound more than one implementation in " << m_vPath << '\n';
-					else
-						m_vImplementation = vPath;
-				}
-				else
-					m_vDependencies.push_back(vPath);
-			}
-		}
-	}
-};
-
-struct
-	ImplementationFile
-{
-	path m_vPath;
-	DepFile m_vDependency;
-
-	bool HasDependency() const
-	{
-		return not m_vDependency.m_vPath.empty();
-	}
-
-	auto GetDependencies() const
-	->	Modularize::UnorderedVector<path> const&
-	{
-		return m_vDependency.m_vDependencies;
-	}
-
-	ImplementationFile() = default;
-
-	explicit(false)
-	(	ImplementationFile
-	)	(	path const
-			&	i_rPath
-		)
-	:	m_vPath
-		{	i_rPath
-		}
-	{}
-
-	auto
-	(	SetDependency
-	)	(	Modularize::UnorderedVector<DepFile>
-			&	i_rDependencyFiles
-		)
-	->	bool
-	{
-		auto const
-			vPosition
-		=	i_rDependencyFiles.find_if
-			(	[&]	(	DepFile const
-						&	i_rDepFile
-					)
-				->	bool
-				{
-					return
-						i_rDepFile.m_vImplementation.native()
-					.	ends_with(m_vPath.c_str())
-					;
-				}
-			)
-		;
-
-		if	(vPosition == end(i_rDependencyFiles))
-			return false;
-
-		m_vDependency = i_rDependencyFiles.SwapOut(vPosition);
-		return true;
-	}
-
-	friend auto
-	(	operator<=>
-	)	(	ImplementationFile const
-			&	i_rLeft
-		,	ImplementationFile const
-			&	i_rRight
-		)
-	{
-		return i_rLeft.m_vPath <=> i_rRight.m_vPath;
-	}
-
-	friend auto
-	(	operator <<
-	)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
-			&	i_rStream
-		,	ImplementationFile const
-			&	i_rHeader
-		)
-	->	decltype(i_rStream)
-	{
-		return i_rStream << i_rHeader.m_vPath << '\n';
-	}
-};
-
-static auto
-(	SearchImplementation
-)	(	path
-			i_vBase
-	,	Modularize::UnorderedVector<ImplementationFile>
-		&	i_rImplementationFiles
-	)
-->	typename Modularize::UnorderedVector<ImplementationFile>::iterator
-{
-	i_vBase.replace_extension();
-	string
-		vSameDir
-	=	i_vBase
-	;
-
-	auto const
-		fPriority1
-	=	[	&vSameDir
-		]	(	ImplementationFile const
-				&	i_rPath
-			)
-		->	bool
-		{
-			path vNoExt = i_rPath.m_vPath;
-			vNoExt.replace_extension();
-			return vSameDir == vNoExt;
-		}
-	;
-
-	if	(	auto const
-				vIncludePos
-			=	vSameDir.find("include")
-		;		vIncludePos
-			<	vSameDir.length()
-		)
-	{	string
-			vSrcDir
-		=	vSameDir
-		;
-		vSrcDir.replace(vIncludePos, 7uz, "src");
-
-		auto const
-			fPriority2
-		=	[	vSrcDir
-			]	(	ImplementationFile const
-					&	i_rPath
-				)
-			->	bool
-			{
-				path vNoExt = i_rPath.m_vPath;
-				vNoExt.replace_extension();
-				return vSrcDir == vNoExt;
-			}
-		;
-
-		vSrcDir.replace(vIncludePos, 4uz, "");
-		auto const
-			fPriority3
-		=	[	vSrcDir
-			]	(	ImplementationFile const
-					&	i_rPath
-				)
-			->	bool
-			{
-				path vNoExt = i_rPath.m_vPath;
-				vNoExt.replace_extension();
-				return vSrcDir == vNoExt;
-			}
-		;
-
-		return
-		i_rImplementationFiles.FindByPriority
-		(	fPriority1
-		,	fPriority2
-		,	fPriority3
-		);
-	}
-	else
-		return
-		i_rImplementationFiles.FindByPriority
-		(	fPriority1
-		);
-}
-
-struct
-	HeaderFile
-{
-	path m_vPath;
-	ImplementationFile m_vImplementation;
-
-	bool IsHeaderOnly() const
-	{
-		return m_vImplementation.m_vPath.empty();
-	}
-
-	bool HasDependency() const
-	{
-		return m_vImplementation.HasDependency();
-	}
-
-	auto GetDependencies() const
-	->	Modularize::UnorderedVector<path> const&
-	{
-		return m_vImplementation.GetDependencies();
-	}
-
-	friend auto
-	(	operator<=>
-	)	(	HeaderFile const
-			&	i_rLeft
-		,	HeaderFile const
-			&	i_rRight
-		)
-	{
-		return i_rLeft.m_vPath <=> i_rRight.m_vPath;
-	}
-
-	friend auto
-	(	operator ==
-	)	(	HeaderFile const
-			&	i_rLeft
-		,	HeaderFile const
-			&	i_rRight
-		)
-	->	bool
-	{
-		return i_rLeft.m_vPath == i_rRight.m_vPath;
-	}
-
-	HeaderFile() = default;
-	explicit(false)
-	(	HeaderFile
-	)	(	path const
-			&	i_rPath
-		)
-	:	m_vPath{i_rPath}
-	{}
-
-	bool SetImplementation(Modularize::UnorderedVector<ImplementationFile>& i_rImplementationFiles)
-	{
-		auto vImplementationIt = SearchImplementation(m_vPath, i_rImplementationFiles);
-		if	(vImplementationIt == i_rImplementationFiles.end())
-			return false;
-
-		m_vImplementation = i_rImplementationFiles.SwapOut(vImplementationIt);
-		return true;
-	}
-
-	auto
-	(	SetDependency
-	)	(	Modularize::UnorderedVector<DepFile>
-			&	i_rDependencyFiles
-		)
-	->	bool
-	{
-		return m_vImplementation.SetDependency(i_rDependencyFiles);
-	}
-
-
-	friend auto
-	(	operator <<
-	)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
-			&	i_rStream
-		,	HeaderFile const
-			&	i_rHeader
-		)
-	->	decltype(i_rStream)
-	{
-
-		i_rStream << i_rHeader.m_vPath << '\n';
-		if	(	not
-				i_rHeader.IsHeaderOnly()
-			)
-			i_rStream << i_rHeader.m_vImplementation;
-		return i_rStream;
-	}
-};
-
-
-
-using HeaderStore = Modularize::CheckedFileStore<HeaderFile, &IsHeader>;
-using ImplementationStore = Modularize::CheckedFileStore<ImplementationFile, &IsImplementation>;
-using DependencyStore = Modularize::CheckedFileStore<DepFile, &IsDependency>;
-
 struct
 	FileStore
 {
-	HeaderStore
+	Modularize::HeaderStore
 		vHeaderFiles
 	;
 
-	ImplementationStore
+	Modularize::ImplementationStore
 		vImplementationFiles
 	;
 
-	DependencyStore
+	Modularize::DependencyStore
 		vDependencyFiles
 	;
 
@@ -445,25 +64,6 @@ struct
 };
 
 auto
-(	EnsureHeader
-)	(	path const
-		&	i_rPath
-	,	string_view
-			i_sErrorMessage
-	)
-->	path
-{
-	if (not exists(i_rPath) or not IsHeader(i_rPath.c_str()))
-	{
-		::std::cerr << i_sErrorMessage << endl;
-		::std::exit(EXIT_FAILURE);
-	}
-	return i_rPath;
-}
-
-
-
-auto
 (	main
 )	(	int argc
 	,	char const
@@ -481,7 +81,7 @@ auto
 
 	Modularize::Directory const SourceDir = Modularize::EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
 	Modularize::Directory const BinaryDir = Modularize::EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
-	path const vRootHeaderPath = EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
+	Modularize::HeaderFile const vRootHeaderPath = Modularize::EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
 
 
 
@@ -502,7 +102,7 @@ auto
 	,	::std::cout
 	};
 
-	auto const vRootHeader = vAllFiles.vHeaderFiles.SwapOut(HeaderFile{vRootHeaderPath});
+	auto const vRootHeader = vAllFiles.vHeaderFiles.SwapOut(vRootHeaderPath);
 
 	if	(vRootHeader.IsHeaderOnly())
 	{
@@ -518,7 +118,7 @@ auto
 	cout << "Required files:\n";
 	cout << vRootHeader;
 
-	Modularize::UnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<Modularize::HeaderFile>
 		vDependentOnHeaders
 	;
 
@@ -531,17 +131,17 @@ auto
 	{
 		vDependentOnHeaders.push_back
 		(	vAllFiles.vHeaderFiles.SwapOut
-			(	HeaderFile{rHeaderPath}
+			(	Modularize::HeaderFile{rHeaderPath}
 			)
 		);
 	}
 
-	Modularize::UnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<Modularize::HeaderFile>
 		vRequiredHeaders
 	;
 	vRequiredHeaders.push_back(vRootHeader);
 
-	Modularize::UnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<Modularize::HeaderFile>
 		vHeaderOnly
 	;
 
@@ -651,7 +251,7 @@ auto
 				{
 					vDependentOnHeaders.push_back
 					(	vAllFiles.vHeaderFiles.SwapOut
-						(	HeaderFile{rDependentOnDependency}
+						(	Modularize::HeaderFile{rDependentOnDependency}
 						)
 					);
 				}
@@ -680,7 +280,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	Modularize::UnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<Modularize::HeaderFile>
 		vInverseFileDependencies
 	;
 	cout << "\nInverse file dependencies:\n";
@@ -696,7 +296,7 @@ auto
 		auto const
 			fIsDependency
 		=	[	&rDependencies
-			]	(	HeaderFile const
+			]	(	Modularize::HeaderFile const
 					&	i_rRequired
 				)
 			{
@@ -733,7 +333,7 @@ auto
 		auto const& rDependencies = vAllFiles.vImplementationFiles[nLeftOverIndex].GetDependencies();
 		if	(	vRequiredHeaders.any_of
 				(	[	&rDependencies
-					]	(	HeaderFile const
+					]	(	Modularize::HeaderFile const
 							&	i_rRequired
 						)
 					{

@@ -10,14 +10,14 @@ namespace
 	Modularize
 {
 	struct
-		NotADirectoryException
+		InvalidDirectoryException
 	:	::std::runtime_error
 	{
 		explicit(true)
-		(	NotADirectoryException
+		(	InvalidDirectoryException
 		)	()
 		:	::std::runtime_error
-			{	"The given path was not a directory!"
+			{	"The given path was not a valid directory!"
 			}
 		{}
 	};
@@ -40,9 +40,10 @@ namespace
 			}
 		{
 			if	(	not exists(m_vPath)
-				or	not is_directory(m_vPath))
+				or	not is_directory(m_vPath)
+				)
 			{
-				throw NotADirectoryException{};
+				throw InvalidDirectoryException{};
 			}
 		}
 
@@ -124,7 +125,7 @@ namespace
 		};
 	}
 	catch
-		(	NotADirectoryException const
+		(	InvalidDirectoryException const
 			&
 		)
 	{
