@@ -1,9 +1,9 @@
 #include "UnorderedVector.hpp"
+#include "Directory.hpp"
 
 #include <iostream>
 #include <string_view>
 #include <filesystem>
-#include <queue>
 #include <fstream>
 #include <optional>
 #include <compare>
@@ -13,13 +13,12 @@ using ::std::string_view;
 using ::std::cerr;
 using ::std::cout;
 using ::std::endl;
-using ::std::queue;
 using ::std::string;
 using ::std::begin;
 using ::std::end;
 
-path SourceDir;
-path BinaryDir;
+Modularize::Directory SourceDir("/");
+Modularize::Directory BinaryDir("/");
 
 auto constexpr
 (	IsHeader
@@ -71,7 +70,7 @@ template
 	>
 auto
 (	PopulateFiles
-)	(	path const
+)	(	Modularize::Directory const
 		&	i_rSourceDir
 	,	Store<t_tpPath, t_fpCheckFile>
 		&
@@ -79,14 +78,9 @@ auto
 	)
 ->	void
 {
-	::std::filesystem::recursive_directory_iterator const
-		vSourceFiles
-	{	i_rSourceDir
-	};
-
 	for	(	auto const
 		&	i_rEntry
-		:	vSourceFiles
+		:	i_rSourceDir
 		)
 	{
 		if	(not i_rEntry.is_regular_file())
@@ -264,7 +258,7 @@ struct
 		)
 	->	decltype(i_rStream)
 	{
-		return i_rStream << i_rHeader.m_vPath.lexically_relative(SourceDir) << '\n';
+		return i_rStream << SourceDir.RelativePath(i_rHeader.m_vPath) << '\n';
 	}
 };
 
@@ -436,7 +430,7 @@ struct
 	->	decltype(i_rStream)
 	{
 
-		i_rStream << i_rHeader.m_vPath.lexically_relative(SourceDir) << '\n';
+		i_rStream << SourceDir.RelativePath(i_rHeader.m_vPath) << '\n';
 		if	(	not
 				i_rHeader.IsHeaderOnly()
 			)
@@ -491,9 +485,9 @@ struct
 
 	explicit(true)
 	(	FileStore
-	)	(	path const
+	)	(	Modularize::Directory const
 			&	i_rSourceDir
-		,	path const
+		,	Modularize::Directory const
 			&	i_rBinaryDir
 		)
 	{
@@ -516,23 +510,6 @@ struct
 		}
 	}
 };
-
-auto
-(	EnsureDirectory
-)	(	path const
-		&	i_rPath
-	,	string_view
-			i_sErrorMessage
-	)
-->	path
-{
-	if (not exists(i_rPath) or not is_directory(i_rPath))
-	{
-		cerr << i_sErrorMessage << endl;
-		::std::exit(EXIT_FAILURE);
-	}
-	return i_rPath;
-}
 
 auto
 (	EnsureHeader
@@ -568,8 +545,8 @@ auto
 		return EXIT_FAILURE;
 	}
 
-	SourceDir = EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
-	BinaryDir = EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
+	SourceDir = Modularize::EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
+	BinaryDir = Modularize::EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
 	path const vRootHeaderPath = EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
 
 
@@ -631,7 +608,7 @@ auto
 		)
 	{
 		auto const& rDependentOnHeader = vDependentOnHeaders[nDependentOnIndex];
-		if	(rDependentOnHeader.m_vPath.native().starts_with(SourceDir.c_str()))
+		if	(SourceDir.contains(rDependentOnHeader.m_vPath))
 		{
 			++nDependentOnIndex;
 		}
@@ -666,7 +643,7 @@ auto
 			{
 				auto const vDependentOnHeader = vDependentOnHeaders.SwapOut(nDependentOnIndex);
 				// header only not handled
-				if	(	vDependentOnHeader.m_vPath.native().starts_with(SourceDir.c_str())
+				if	(	SourceDir.contains(vDependentOnHeader.m_vPath)
 					and	(	not
 							vHeaderOnly.contains
 							(	vDependentOnHeader
@@ -714,7 +691,7 @@ auto
 
 			{
 				if	(	//	dont add headers in other directories
-						rDependentOnDependency.native().starts_with(SourceDir.c_str())
+						SourceDir.contains(rDependentOnDependency)
 					and	not
 						vDependentOnHeaders.contains
 						(	rDependentOnDependency
