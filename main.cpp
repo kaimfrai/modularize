@@ -1,4 +1,5 @@
 
+#include "CombinedFileStore.hpp"
 #include "CheckedFileStore.hpp"
 #include "DependencyFile.hpp"
 #include "Directory.hpp"
@@ -9,59 +10,6 @@
 #include <iostream>
 #include <string_view>
 #include <filesystem>
-#include <fstream>
-#include <optional>
-#include <compare>
-
-using ::std::filesystem::path;
-using ::std::string_view;
-using ::std::endl;
-using ::std::string;
-using ::std::begin;
-using ::std::end;
-
-struct
-	FileStore
-{
-	Modularize::HeaderStore
-		vHeaderFiles
-	;
-
-	Modularize::ImplementationStore
-		vImplementationFiles
-	;
-
-	Modularize::DependencyStore
-		vDependencyFiles
-	;
-
-	explicit(true)
-	(	FileStore
-	)	(	Modularize::Directory const
-			&	i_rSourceDir
-		,	Modularize::Directory const
-			&	i_rBinaryDir
-		)
-	{
-		Modularize::PopulateFiles(i_rSourceDir, vHeaderFiles, vImplementationFiles);
-		Modularize::PopulateFiles(i_rBinaryDir, vDependencyFiles);
-		for	(	auto
-				&	rHeader
-			:	vHeaderFiles
-			)
-		{
-			if	(rHeader.SetImplementation(vImplementationFiles))
-				rHeader.SetDependency(vDependencyFiles);
-		}
-		for	(	auto
-				&	rImplementation
-			:	vImplementationFiles
-			)
-		{
-			rImplementation.SetDependency(vDependencyFiles);
-		}
-	}
-};
 
 auto
 (	main
@@ -74,18 +22,16 @@ auto
 {
 	if (argc < 4)
 	{
-		::std::cerr << "Path to source directory, binary directory, and relative header required as arguments!" << endl;
+		::std::cerr << "Path to source directory, binary directory, and relative header required as arguments!" << ::std::endl;
 		return EXIT_FAILURE;
 	}
 
 
-	Modularize::Directory const SourceDir = Modularize::EnsureDirectory(string_view{argv[1]}, "Source directory required as first argument!");
-	Modularize::Directory const BinaryDir = Modularize::EnsureDirectory(SourceDir / string_view{argv[2]}, "Relative binary directory required as second argument!");
-	Modularize::HeaderFile const vRootHeaderPath = Modularize::EnsureHeader(SourceDir / string_view{argv[3]}, "Relative header required as third argument!");
+	Modularize::Directory const SourceDir = Modularize::EnsureDirectory(::std::string_view{argv[1]}, "Source directory required as first argument!");
+	Modularize::Directory const BinaryDir = Modularize::EnsureDirectory(SourceDir / ::std::string_view{argv[2]}, "Relative binary directory required as second argument!");
+	Modularize::HeaderFile const vRootHeaderPath = Modularize::EnsureHeader(SourceDir / ::std::string_view{argv[3]}, "Relative header required as third argument!");
 
-
-
-	FileStore
+	Modularize::CombinedFileStore
 		vAllFiles
 	{	SourceDir
 	,	BinaryDir
@@ -111,7 +57,7 @@ auto
 	}
 	if	(not vRootHeader.HasDependency())
 	{
-		cerr << "Could not find a dependency file for " << vRootHeader.m_vImplementation << endl;
+		cerr << "Could not find a dependency file for " << vRootHeader.m_vImplementation << ::std::endl;
 		::std::exit(EXIT_FAILURE);
 	}
 
@@ -218,7 +164,7 @@ auto
 			// not a cyclic dependency (yet)
 			if	(	rDependentOnDependencies.none_of
 					(	[	&rRequiredHeader
-						]	(	path const
+						]	(	::std::filesystem::path const
 								&	i_rDependentOnDependency
 							)
 						{	return i_rDependentOnDependency == rRequiredHeader.m_vPath;	}
