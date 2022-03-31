@@ -244,7 +244,7 @@ namespace
 		}
 	};
 
-	auto
+	auto inline
 	(	EnsureHeader
 	)	(	::std::filesystem::path const
 			&	i_rPath

@@ -5,6 +5,8 @@
 #include "HeaderFile.hpp"
 #include "ImplementationFile.hpp"
 
+#include <span>
+
 namespace
 	Modularize
 {
@@ -50,4 +52,14 @@ namespace
 			}
 		}
 	};
+
+	auto
+	(	AnalyzeModularity
+	)	(	::std::span
+			<	char const*
+			>	i_vArgument
+		)
+	->	void
+	;
+
 }

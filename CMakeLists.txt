@@ -6,4 +6,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(modularize)
 
-add_executable(modularize main.cpp)
+add_executable(modularize main.cpp CombinedFileStore.cpp)
+add_link_options(-fuse-ld=lld)
