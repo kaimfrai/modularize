@@ -1,7 +1,8 @@
+#include "UniqueUnorderedVector.hpp"
+
 #include <iostream>
 #include <string_view>
 #include <filesystem>
-#include <vector>
 #include <queue>
 #include <fstream>
 #include <optional>
@@ -12,7 +13,6 @@ using ::std::string_view;
 using ::std::cerr;
 using ::std::cout;
 using ::std::endl;
-using ::std::vector;
 using ::std::queue;
 using ::std::string;
 using ::std::begin;
@@ -20,56 +20,6 @@ using ::std::end;
 
 path SourceDir;
 path BinaryDir;
-
-template
-	<	typename
-			t_tContainer
-	>
-auto inline
-(	Find
-)	(	t_tContainer
-		&	i_rContainer
-	,	typename t_tContainer::value_type const
-		&	i_rValue
-	)
-{	return
-	::std::find
-	(	begin(i_rContainer)
-	,	end(i_rContainer)
-	,	i_rValue
-	);
-}
-
-template
-	<	typename
-			t_tContainer
-	>
-auto inline
-(	Contains
-)	(	t_tContainer const
-		&	i_rContainer
-	,	typename t_tContainer::value_type const
-		&	i_rValue
-	)
-->	bool
-{
-	auto const
-		vBegin
-	=	begin(i_rContainer)
-	;
-	auto const
-		vEnd
-	=	end(i_rContainer)
-	;
-	return
-		vEnd
-	!=	::std::find
-		(	vBegin
-		,	vEnd
-		,	i_rValue
-		)
-	;
-}
 
 auto constexpr
 (	IsHeader
@@ -105,107 +55,6 @@ auto constexpr
 		i_vPath.ends_with(".o.d")
 	;
 }
-
-template
-	<	typename
-			t_tPath
-	>
-auto inline
-(	SwapOut
-)	(	vector<t_tPath>
-		&	i_rPaths
-	,	vector<t_tPath>::iterator
-			i_vPosition
-	)
-->	t_tPath
-{
-	if	(i_vPosition != end(i_rPaths))
-	{
-		using ::std::swap;
-		swap(*i_vPosition, i_rPaths.back());
-		auto const vResult = ::std::move(i_rPaths.back());
-		i_rPaths.pop_back();
-		return vResult;
-	}
-	else
-		return {};
-}
-
-template<typename t_tPath>
-auto inline
-(	SwapOut
-)	(	vector<t_tPath>
-		&	i_rPaths
-	,	t_tPath const
-		&	i_rSwapOut
-	)
-->	t_tPath
-{
-	return
-	SwapOut
-	(	i_rPaths
-	,	Find
-		(	i_rPaths
-		,	i_rSwapOut
-		)
-	);
-}
-
-template<typename t_tPath>
-auto inline
-(	SwapOutByIndex
-)	(	vector<t_tPath>
-		&	i_rPaths
-	,	::std::size_t
-			i_nIndex
-	)
-->	t_tPath
-{
-	return
-	SwapOut
-	(	i_rPaths
-	,	begin(i_rPaths)
-	+	i_nIndex
-	);
-}
-
-template
-	<	typename
-			t_tIterator
-	,	typename
-		...	t_tpPredicates
-	>
-auto
-(	FindByPriority
-)	(	t_tIterator
-			i_vBegin
-	,	t_tIterator
-			i_vEnd
-	,	t_tpPredicates const
-		&
-		...	i_rpPredicates
-	)
-->	t_tIterator
-{
-	t_tIterator
-		vPosition
-	=	i_vEnd
-	;
-	(void)(	...
-	or	(	(	vPosition
-			=	::std::find_if
-				(	i_vBegin
-				,	i_vEnd
-				,	i_rpPredicates
-				)
-			)
-		!=	i_vEnd
-		)
-	);
-	return vPosition;
-}
-
-
 
 using CheckFileFunc = auto(*)(string_view) -> bool;
 
@@ -260,7 +109,7 @@ struct
 {
 	path m_vPath;
 	path m_vImplementation;
-	::std::vector<path>
+	Modularize::UniqueUnorderedVector<path>
 		m_vDependencies
 	;
 
@@ -348,7 +197,7 @@ struct
 	}
 
 	auto GetDependencies() const
-	->	vector<path> const&
+	->	Modularize::UniqueUnorderedVector<path> const&
 	{
 		return m_vDependency.m_vDependencies;
 	}
@@ -367,17 +216,15 @@ struct
 
 	auto
 	(	SetDependency
-	)	(	::std::vector<DepFile>
+	)	(	Modularize::UniqueUnorderedVector<DepFile>
 			&	i_rDependencyFiles
 		)
 	->	bool
 	{
 		auto const
 			vPosition
-		=	::std::find_if
-			(	begin(i_rDependencyFiles)
-			,	end(i_rDependencyFiles)
-			,	[&]	(	DepFile const
+		=	i_rDependencyFiles.find_if
+			(	[&]	(	DepFile const
 						&	i_rDepFile
 					)
 				->	bool
@@ -393,7 +240,7 @@ struct
 		if	(vPosition == end(i_rDependencyFiles))
 			return false;
 
-		m_vDependency = SwapOut(i_rDependencyFiles, vPosition);
+		m_vDependency = i_rDependencyFiles.SwapOut(vPosition);
 		return true;
 	}
 
@@ -425,12 +272,10 @@ static auto
 (	SearchImplementation
 )	(	path
 			i_vBase
-	,	vector<ImplementationFile>::iterator
-			i_vBegin
-	,	vector<ImplementationFile>::iterator
-			i_vEnd
+	,	Modularize::UniqueUnorderedVector<ImplementationFile>
+		&	i_rImplementationFiles
 	)
-->	vector<ImplementationFile>::iterator
+->	typename Modularize::UniqueUnorderedVector<ImplementationFile>::iterator
 {
 	i_vBase.replace_extension();
 	string
@@ -494,20 +339,16 @@ static auto
 		;
 
 		return
-		FindByPriority
-		(	i_vBegin
-		,	i_vEnd
-		,	fPriority1
+		i_rImplementationFiles.FindByPriority
+		(	fPriority1
 		,	fPriority2
 		,	fPriority3
 		);
 	}
 	else
 		return
-		FindByPriority
-		(	i_vBegin
-		,	i_vEnd
-		,	fPriority1
+		i_rImplementationFiles.FindByPriority
+		(	fPriority1
 		);
 }
 
@@ -528,7 +369,7 @@ struct
 	}
 
 	auto GetDependencies() const
-	->	vector<path> const&
+	->	Modularize::UniqueUnorderedVector<path> const&
 	{
 		return m_vImplementation.GetDependencies();
 	}
@@ -565,19 +406,19 @@ struct
 	:	m_vPath{i_rPath}
 	{}
 
-	bool SetImplementation(::std::vector<ImplementationFile>& i_rImplementationFiles)
+	bool SetImplementation(Modularize::UniqueUnorderedVector<ImplementationFile>& i_rImplementationFiles)
 	{
-		auto vImplementationIt = SearchImplementation(m_vPath, begin(i_rImplementationFiles), end(i_rImplementationFiles));
-		if	(vImplementationIt == end(i_rImplementationFiles))
+		auto vImplementationIt = SearchImplementation(m_vPath, i_rImplementationFiles);
+		if	(vImplementationIt == i_rImplementationFiles.end())
 			return false;
 
-		m_vImplementation = SwapOut(i_rImplementationFiles, vImplementationIt);
+		m_vImplementation = i_rImplementationFiles.SwapOut(vImplementationIt);
 		return true;
 	}
 
 	auto
 	(	SetDependency
-	)	(	::std::vector<DepFile>
+	)	(	Modularize::UniqueUnorderedVector<DepFile>
 			&	i_rDependencyFiles
 		)
 	->	bool
@@ -607,10 +448,8 @@ struct
 template<typename t_tPath, CheckFileFunc t_fCheckFile>
 struct
 	Store
+:	Modularize::UniqueUnorderedVector<t_tPath>
 {
-	vector<t_tPath>
-		vFiles
-	;
 	Store() = default;
 
 	explicit(true)
@@ -619,49 +458,14 @@ struct
 			&	i_rSourceDir
 		)
 	{
-		::PopulateFiles(i_rSourceDir, vFiles);
+		::PopulateFiles(i_rSourceDir, *this);
 	}
 
-	operator vector<t_tPath>&
-		()	&
-	{	return vFiles;	}
-
-	auto
-	(	operator[]
-	)	(	::std::size_t
-				i_nIndex
-		)	const&
-	->	t_tPath const&
-	{
-		return vFiles[i_nIndex];
-	}
-
-	auto
-	(	size
-	)	()	const
-	{
-		return vFiles.size();
-	}
-
-	auto
-	(	begin
-	)	()
-	{
-		return vFiles.begin();
-	}
-
-	auto
-	(	end
-	)	()
-	{
-		return vFiles.end();
-	}
-
-	auto AddEntry(path const& i_rEntry)
+	auto AddEntry(path const& i_rEntry) &
 	{
 		bool const bAdd = t_fCheckFile(i_rEntry.c_str());
 		if	(bAdd)
-			vFiles.push_back(i_rEntry);
+			this->push_back(i_rEntry);
 		return bAdd;
 	}
 };
@@ -774,7 +578,7 @@ auto
 	{	SourceDir
 	,	BinaryDir
 	};
-	auto const vRootHeader = SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{vRootHeaderPath});
+	auto const vRootHeader = vAllFiles.vHeaderFiles.SwapOut(HeaderFile{vRootHeaderPath});
 
 	if	(vRootHeader.IsHeaderOnly())
 	{
@@ -790,7 +594,7 @@ auto
 	cout << "Required files:\n";
 	cout << vRootHeader;
 
-	::std::vector<HeaderFile>
+	Modularize::UniqueUnorderedVector<HeaderFile>
 		vDependentOnHeaders
 	;
 
@@ -801,15 +605,19 @@ auto
 		:	rRootDependencies
 		)
 	{
-		vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rHeaderPath}));
+		vDependentOnHeaders.push_back
+		(	vAllFiles.vHeaderFiles.SwapOut
+			(	HeaderFile{rHeaderPath}
+			)
+		);
 	}
 
-	::std::vector<HeaderFile>
+	Modularize::UniqueUnorderedVector<HeaderFile>
 		vRequiredHeaders
 	;
 	vRequiredHeaders.push_back(vRootHeader);
 
-	::std::vector<HeaderFile>
+	Modularize::UniqueUnorderedVector<HeaderFile>
 		vHeaderOnly
 	;
 
@@ -829,7 +637,7 @@ auto
 		}
 		else
 		{
-			SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
+			vDependentOnHeaders.SwapOut(nDependentOnIndex);
 		}
 	}
 
@@ -856,13 +664,12 @@ auto
 
 			if	(rDependentOnHeader.IsHeaderOnly())
 			{
-				auto const vDependentOnHeader = SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
+				auto const vDependentOnHeader = vDependentOnHeaders.SwapOut(nDependentOnIndex);
 				// header only not handled
 				if	(	vDependentOnHeader.m_vPath.native().starts_with(SourceDir.c_str())
 					and	(	not
-							Contains
-							(	vHeaderOnly
-							,	vDependentOnHeader
+							vHeaderOnly.contains
+							(	vDependentOnHeader
 							)
 						)
 					)
@@ -875,7 +682,7 @@ auto
 			if (not rDependentOnHeader.HasDependency())
 			{
 				cerr << "No dependency file found for " << rDependentOnHeader.m_vImplementation;
-				SwapOut(vDependentOnHeaders, begin(vDependentOnHeaders) + nDependentOnIndex);
+				vDependentOnHeaders.SwapOut(nDependentOnIndex);
 				continue;
 			}
 
@@ -885,10 +692,8 @@ auto
 			;
 
 			// not a cyclic dependency (yet)
-			if	(	::std::none_of
-					(	begin(rDependentOnDependencies)
-					,	end(rDependentOnDependencies)
-					,	[	&rRequiredHeader
+			if	(	rDependentOnDependencies.none_of
+					(	[	&rRequiredHeader
 						]	(	path const
 								&	i_rDependentOnDependency
 							)
@@ -911,24 +716,30 @@ auto
 				if	(	//	dont add headers in other directories
 						rDependentOnDependency.native().starts_with(SourceDir.c_str())
 					and	not
-						Contains
-						(	vDependentOnHeaders
-						,	rDependentOnDependency
+						vDependentOnHeaders.contains
+						(	rDependentOnDependency
 						)
 					and	not
-						Contains
-						(	vRequiredHeaders
-						,	rDependentOnDependency
+						vRequiredHeaders.contains
+						(	rDependentOnDependency
 						)
 					)
 				{
-					vDependentOnHeaders.push_back(SwapOut(vAllFiles.vHeaderFiles.vFiles, HeaderFile{rDependentOnDependency}));
+					vDependentOnHeaders.push_back
+					(	vAllFiles.vHeaderFiles.SwapOut
+						(	HeaderFile{rDependentOnDependency}
+						)
+					);
 				}
 			}
 
 			// add to required headers
 			cout << rDependentOnHeader;
-			vRequiredHeaders.push_back( SwapOutByIndex(vDependentOnHeaders, nDependentOnIndex));
+			vRequiredHeaders.push_back
+			(	vDependentOnHeaders.SwapOut
+				(	nDependentOnIndex
+				)
+			);
 
 			// restart loop accounting for new required header
 			nRequiredIndex = 0;
@@ -945,7 +756,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	::std::vector<HeaderFile>
+	Modularize::UniqueUnorderedVector<HeaderFile>
 		vInverseFileDependencies
 	;
 	cout << "\nInverse file dependencies:\n";
@@ -965,22 +776,18 @@ auto
 					&	i_rRequired
 				)
 			{
-				return Contains(rDependencies, i_rRequired.m_vPath);
+				return rDependencies.contains(i_rRequired.m_vPath);
 			}
 		;
-		if	(	::std::any_of
-				(	begin(vRequiredHeaders)
-				,	end(vRequiredHeaders)
-				,	fIsDependency
+		if	(	vRequiredHeaders.any_of
+				(	fIsDependency
 				)
-			or	::std::any_of
-				(	begin(vInverseFileDependencies)
-				,	end(vInverseFileDependencies)
-				,	fIsDependency
+			or	vInverseFileDependencies.any_of
+				(	fIsDependency
 				)
 			)
 		{
-			auto vFile = SwapOutByIndex(vAllFiles.vHeaderFiles.vFiles, nLeftOverIndex);
+			auto vFile = vAllFiles.vHeaderFiles.SwapOut(nLeftOverIndex);
 			cout << vFile;
 			vInverseFileDependencies.push_back(::std::move(vFile));
 			//	restart loop
@@ -1000,20 +807,18 @@ auto
 		)
 	{
 		auto const& rDependencies = vAllFiles.vImplementationFiles[nLeftOverIndex].GetDependencies();
-		if	(	::std::any_of
-				(	begin(vRequiredHeaders)
-				,	end(vRequiredHeaders)
-				,	[	&rDependencies
+		if	(	vRequiredHeaders.any_of
+				(	[	&rDependencies
 					]	(	HeaderFile const
 							&	i_rRequired
 						)
 					{
-						return Contains(rDependencies, i_rRequired.m_vPath);
+						return rDependencies.contains(i_rRequired.m_vPath);
 					}
 				)
 			)
 		{
-			cout << SwapOutByIndex(vAllFiles.vImplementationFiles.vFiles, nLeftOverIndex);
+			cout << vAllFiles.vImplementationFiles.SwapOut(nLeftOverIndex);
 		}
 		else
 			++nLeftOverIndex;
@@ -1036,28 +841,22 @@ auto
 					&	i_rLeftOverFile
 				)
 			{
-				return Contains(i_rLeftOverFile.GetDependencies(), vHeaderPath);
+				return i_rLeftOverFile.GetDependencies().contains(vHeaderPath);
 			}
 		;
 
-		if	(	::std::none_of
-				(	begin(vDependentOnHeaders)
-				,	end(vDependentOnHeaders)
-				,	fDependsOnHeader
+		if	(	vDependentOnHeaders.none_of
+				(	fDependsOnHeader
 				)
-			and	::std::none_of
-				(	begin(vAllFiles.vHeaderFiles)
-				,	end(vAllFiles.vHeaderFiles)
-				,	fDependsOnHeader
+			and	vAllFiles.vHeaderFiles.none_of
+				(	fDependsOnHeader
 				)
-			and	::std::none_of
-				(	begin(vAllFiles.vImplementationFiles)
-				,	end(vAllFiles.vImplementationFiles)
-				,	fDependsOnHeader
+			and	vAllFiles.vImplementationFiles.none_of
+				(	fDependsOnHeader
 				)
 			)
 		{
-			cout << SwapOutByIndex(vHeaderOnly, nLeftOverIndex);
+			cout << vHeaderOnly.SwapOut(nLeftOverIndex);
 		}
 		else
 			++nLeftOverIndex;
