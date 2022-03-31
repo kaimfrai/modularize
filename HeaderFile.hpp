@@ -96,19 +96,6 @@ namespace
 	}
 
 	struct
-		InvalidHeaderFileException
-	:	::std::runtime_error
-	{
-		explicit(true)
-		(	InvalidHeaderFileException
-		)	()
-		:	::std::runtime_error
-			{	"The given path was not a valid header file!"
-			}
-		{}
-	};
-
-	struct
 		HeaderFile
 	{
 		::std::filesystem::path
@@ -119,7 +106,7 @@ namespace
 		;
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	IsHeaderOnly
 		)	()	const
 		->	bool
@@ -129,7 +116,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	HasDependency
 		)	()	const
 		->	bool
@@ -139,7 +126,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	GetDependencies
 		)	()	const&
 		->	UnorderedVector<::std::filesystem::path> const&
@@ -149,7 +136,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		friend auto
+		friend auto inline
 		(	operator<=>
 		)	(	HeaderFile const
 				&	i_rLeft
@@ -164,7 +151,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		friend auto
+		friend auto inline
 		(	operator ==
 		)	(	HeaderFile const
 				&	i_rLeft
@@ -188,15 +175,7 @@ namespace
 		)	(	::std::filesystem::path const
 				&	i_rPath
 			)
-		:	m_vPath{i_rPath}
-		{
-			if	(	not exists(i_rPath)
-				or	not IsHeader(i_rPath)
-				)
-			{
-				throw InvalidHeaderFileException{};
-			}
-		}
+		;
 
 		auto
 		(	SetImplementation
@@ -204,16 +183,9 @@ namespace
 				& i_rImplementationFiles
 			)
 		->	bool
-		{
-			auto vImplementationIt = SearchImplementation(m_vPath, i_rImplementationFiles);
-			if	(vImplementationIt == i_rImplementationFiles.end())
-				return false;
+		;
 
-			m_vImplementation = i_rImplementationFiles.SwapOut(vImplementationIt);
-			return true;
-		}
-
-		auto
+		auto inline
 		(	SetDependency
 		)	(	UnorderedVector<DependencyFile>
 				&	i_rDependencyFiles
@@ -225,7 +197,7 @@ namespace
 			);
 		}
 
-		friend auto
+		friend auto inline
 		(	operator <<
 		)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
 				&	i_rStream
@@ -244,7 +216,7 @@ namespace
 		}
 	};
 
-	auto inline
+	auto
 	(	EnsureHeader
 	)	(	::std::filesystem::path const
 			&	i_rPath
@@ -252,18 +224,7 @@ namespace
 				i_sErrorMessage
 		)
 	->	HeaderFile
-	try
-	{
-		return{ i_rPath };
-	}
-	catch
-		(	InvalidHeaderFileException const
-			&
-		)
-	{
-		::std::cerr << i_sErrorMessage << ::std::endl;
-		::std::exit(EXIT_FAILURE);
-	}
+	;
 
 	using HeaderStore = CheckedFileStore<HeaderFile, &IsHeader>;
 }

@@ -19,7 +19,7 @@ namespace
 		;
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	HasDependency
 		)	()	const
 		->	bool
@@ -30,7 +30,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	GetDependencies
 		)	()	const&
 		->	UnorderedVector<::std::filesystem::path> const&
@@ -41,7 +41,7 @@ namespace
 		)	()
 		=	default;
 
-		explicit(false)
+		explicit(false) inline
 		(	ImplementationFile
 		)	(	::std::filesystem::path const
 				&	i_rPath
@@ -57,32 +57,10 @@ namespace
 				&	i_rDependencyFiles
 			)
 		->	bool
-		{
-			auto const
-				vPosition
-			=	i_rDependencyFiles.find_if
-				(	[&]	(	DependencyFile const
-							&	i_rDepFile
-						)
-					->	bool
-					{
-						return
-							i_rDepFile.m_vImplementation.native()
-						.	ends_with(m_vPath.c_str())
-						;
-					}
-				)
-			;
-
-			if	(vPosition == i_rDependencyFiles.end())
-				return false;
-
-			m_vDependency = i_rDependencyFiles.SwapOut(vPosition);
-			return true;
-		}
+		;
 
 		[[nodiscard]]
-		friend auto
+		friend auto inline
 		(	operator<=>
 		)	(	ImplementationFile const
 				&	i_rLeft
@@ -93,9 +71,9 @@ namespace
 			return i_rLeft.m_vPath <=> i_rRight.m_vPath;
 		}
 
-		friend auto
+		friend auto inline
 		(	operator <<
-		)	(	Modularize::DirectoryRelativeStream<decltype(::std::cout)>
+		)	(	DirectoryRelativeStream<decltype(::std::cout)>
 				&	i_rStream
 			,	ImplementationFile const
 				&	i_rHeader
@@ -106,5 +84,5 @@ namespace
 		}
 	};
 
-	using ImplementationStore = Modularize::CheckedFileStore<ImplementationFile, &IsImplementation>;
+	using ImplementationStore = CheckedFileStore<ImplementationFile, &IsImplementation>;
 }

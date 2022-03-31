@@ -75,7 +75,7 @@ namespace
 			m_vBinaryDirectory
 		;
 	public:
-		explicit(true)
+		explicit(true) inline
 		(	Context
 		)	(	Directory const
 				&	i_rSourceDirectory
@@ -90,19 +90,19 @@ namespace
 			}
 		{}
 
-		auto
+		auto inline
 		(	GetSourceDirectory
 		)	()	const&
 		->	Directory const&
 		{	return m_vSourceDirectory;	}
 
-		auto
+		auto inline
 		(	GetBinaryDirectory
 		)	()	const&
 		->	Directory const&
 		{	return m_vBinaryDirectory;	}
 
-		auto
+		auto inline
 		(	StandardLog
 		)	()	const
 		->	DirectoryRelativeStream<decltype(::std::cerr)>
@@ -113,7 +113,7 @@ namespace
 			};
 		}
 
-		auto
+		auto inline
 		(	ErrorLog
 		)	()	const
 		->	DirectoryRelativeStream<decltype(::std::cerr)>

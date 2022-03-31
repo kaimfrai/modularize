@@ -1,6 +1,5 @@
 #pragma once
 
-#include <exception>
 #include <filesystem>
 #include <iostream>
 #include <string_view>
@@ -9,19 +8,6 @@
 namespace
 	Modularize
 {
-	struct
-		InvalidDirectoryException
-	:	::std::runtime_error
-	{
-		explicit(true)
-		(	InvalidDirectoryException
-		)	()
-		:	::std::runtime_error
-			{	"The given path was not a valid directory!"
-			}
-		{}
-	};
-
 	class
 		Directory
 	{
@@ -35,20 +21,10 @@ namespace
 		)	(	::std::filesystem::path const
 				&	i_rPath
 			)
-		:	m_vPath
-			{	i_rPath
-			}
-		{
-			if	(	not exists(m_vPath)
-				or	not is_directory(m_vPath)
-				)
-			{
-				throw InvalidDirectoryException{};
-			}
-		}
+		;
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	RelativePath
 		)	(	::std::filesystem::path const
 				&	i_rAbsolutePath
@@ -61,7 +37,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		friend auto
+		friend auto inline
 		(	operator /
 		)	(	Directory const
 				&	i_rDirectory
@@ -76,7 +52,7 @@ namespace
 		}
 
 		[[nodiscard]]
-		auto
+		auto inline
 		(	contains
 		)	(	::std::filesystem::path const
 				&	i_rPath
@@ -89,7 +65,7 @@ namespace
 			);
 		}
 
-		auto
+		auto inline
 		(	begin
 		)	()	const
 			noexcept
@@ -100,7 +76,7 @@ namespace
 			};
 		}
 
-		auto
+		auto inline
 		(	end
 		)	()	const
 			noexcept
@@ -109,7 +85,7 @@ namespace
 	};
 
 	[[nodiscard]]
-	auto inline
+	auto
 	(	EnsureDirectory
 	)	(	::std::filesystem::path const
 			&	i_rPath
@@ -117,21 +93,7 @@ namespace
 				i_vErrorMessage
 		)
 	->	Directory
-	try
-	{
-		return
-		Directory
-		{	i_rPath
-		};
-	}
-	catch
-		(	InvalidDirectoryException const
-			&
-		)
-	{
-		::std::cerr << i_vErrorMessage << ::std::endl;
-		::std::exit(EXIT_FAILURE);
-	}
+	;
 
 	[[nodiscard]]
 	auto inline
@@ -166,7 +128,7 @@ namespace
 		&	m_rOut
 		;
 	public:
-		explicit(true)
+		explicit(true) inline
 		(	DirectoryRelativeStream
 		)	(	Directory const
 				&	i_rDirectory
@@ -181,7 +143,7 @@ namespace
 			}
 		{}
 
-		friend auto
+		friend auto inline
 		(	operator <<
 		)	(	DirectoryRelativeStream
 				&	i_rStream
@@ -194,7 +156,7 @@ namespace
 			return i_rStream;
 		}
 
-		friend auto
+		friend auto inline
 		(	operator <<
 		)	(	DirectoryRelativeStream
 				&	i_rStream
@@ -212,7 +174,7 @@ namespace
 			return i_rStream;
 		}
 
-		friend auto
+		friend auto inline
 		(	operator <<
 		)	(	DirectoryRelativeStream
 				&	i_rStream
