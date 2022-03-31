@@ -11,7 +11,7 @@ namespace
 				t_tElement
 		>
 	class
-		UniqueUnorderedVector
+		UnorderedVector
 	{
 		using VectorType = ::std::vector<t_tElement>;
 		VectorType

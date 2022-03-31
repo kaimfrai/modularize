@@ -1,4 +1,4 @@
-#include "UniqueUnorderedVector.hpp"
+#include "UnorderedVector.hpp"
 
 #include <iostream>
 #include <string_view>
@@ -109,7 +109,7 @@ struct
 {
 	path m_vPath;
 	path m_vImplementation;
-	Modularize::UniqueUnorderedVector<path>
+	Modularize::UnorderedVector<path>
 		m_vDependencies
 	;
 
@@ -197,7 +197,7 @@ struct
 	}
 
 	auto GetDependencies() const
-	->	Modularize::UniqueUnorderedVector<path> const&
+	->	Modularize::UnorderedVector<path> const&
 	{
 		return m_vDependency.m_vDependencies;
 	}
@@ -216,7 +216,7 @@ struct
 
 	auto
 	(	SetDependency
-	)	(	Modularize::UniqueUnorderedVector<DepFile>
+	)	(	Modularize::UnorderedVector<DepFile>
 			&	i_rDependencyFiles
 		)
 	->	bool
@@ -272,10 +272,10 @@ static auto
 (	SearchImplementation
 )	(	path
 			i_vBase
-	,	Modularize::UniqueUnorderedVector<ImplementationFile>
+	,	Modularize::UnorderedVector<ImplementationFile>
 		&	i_rImplementationFiles
 	)
-->	typename Modularize::UniqueUnorderedVector<ImplementationFile>::iterator
+->	typename Modularize::UnorderedVector<ImplementationFile>::iterator
 {
 	i_vBase.replace_extension();
 	string
@@ -369,7 +369,7 @@ struct
 	}
 
 	auto GetDependencies() const
-	->	Modularize::UniqueUnorderedVector<path> const&
+	->	Modularize::UnorderedVector<path> const&
 	{
 		return m_vImplementation.GetDependencies();
 	}
@@ -406,7 +406,7 @@ struct
 	:	m_vPath{i_rPath}
 	{}
 
-	bool SetImplementation(Modularize::UniqueUnorderedVector<ImplementationFile>& i_rImplementationFiles)
+	bool SetImplementation(Modularize::UnorderedVector<ImplementationFile>& i_rImplementationFiles)
 	{
 		auto vImplementationIt = SearchImplementation(m_vPath, i_rImplementationFiles);
 		if	(vImplementationIt == i_rImplementationFiles.end())
@@ -418,7 +418,7 @@ struct
 
 	auto
 	(	SetDependency
-	)	(	Modularize::UniqueUnorderedVector<DepFile>
+	)	(	Modularize::UnorderedVector<DepFile>
 			&	i_rDependencyFiles
 		)
 	->	bool
@@ -448,7 +448,7 @@ struct
 template<typename t_tPath, CheckFileFunc t_fCheckFile>
 struct
 	Store
-:	Modularize::UniqueUnorderedVector<t_tPath>
+:	Modularize::UnorderedVector<t_tPath>
 {
 	Store() = default;
 
@@ -594,7 +594,7 @@ auto
 	cout << "Required files:\n";
 	cout << vRootHeader;
 
-	Modularize::UniqueUnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<HeaderFile>
 		vDependentOnHeaders
 	;
 
@@ -612,12 +612,12 @@ auto
 		);
 	}
 
-	Modularize::UniqueUnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<HeaderFile>
 		vRequiredHeaders
 	;
 	vRequiredHeaders.push_back(vRootHeader);
 
-	Modularize::UniqueUnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<HeaderFile>
 		vHeaderOnly
 	;
 
@@ -756,7 +756,7 @@ auto
 		cout << rLeftOver;
 	}
 
-	Modularize::UniqueUnorderedVector<HeaderFile>
+	Modularize::UnorderedVector<HeaderFile>
 		vInverseFileDependencies
 	;
 	cout << "\nInverse file dependencies:\n";
