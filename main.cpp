@@ -1,5 +1,7 @@
-#include "UnorderedVector.hpp"
+
+#include "CheckedFileStore.hpp"
 #include "Directory.hpp"
+#include "UnorderedVector.hpp"
 
 #include <iostream>
 #include <string_view>
@@ -50,48 +52,6 @@ auto constexpr
 	;
 }
 
-using CheckFileFunc = auto(*)(string_view) -> bool;
-
-template<typename t_tPath, CheckFileFunc t_fCheckFile>
-struct
-	Store
-;
-
-template
-	<	typename
-		...	t_tpPath
-	,	CheckFileFunc
-		...	t_fpCheckFile
-	>
-auto
-(	PopulateFiles
-)	(	Modularize::Directory const
-		&	i_rSourceDir
-	,	Store<t_tpPath, t_fpCheckFile>
-		&
-		...	i_rStore
-	)
-->	void
-{
-	for	(	auto const
-		&	i_rEntry
-		:	i_rSourceDir
-		)
-	{
-		if	(not i_rEntry.is_regular_file())
-			continue;
-
-		auto const
-		&	rPath
-		=	i_rEntry.path()
-		;
-
-		(void)
-		(	...
-		or	i_rStore.AddEntry(rPath)
-		);
-	}
-}
 
 struct
 	DepFile
@@ -435,34 +395,11 @@ struct
 	}
 };
 
-template<typename t_tPath, CheckFileFunc t_fCheckFile>
-struct
-	Store
-:	Modularize::UnorderedVector<t_tPath>
-{
-	Store() = default;
 
-	explicit(true)
-	(	Store
-	)	(	path const
-			&	i_rSourceDir
-		)
-	{
-		::PopulateFiles(i_rSourceDir, *this);
-	}
 
-	auto AddEntry(path const& i_rEntry) &
-	{
-		bool const bAdd = t_fCheckFile(i_rEntry.c_str());
-		if	(bAdd)
-			this->push_back(i_rEntry);
-		return bAdd;
-	}
-};
-
-using HeaderStore = Store<HeaderFile, &IsHeader>;
-using ImplementationStore = Store<ImplementationFile, &IsImplementation>;
-using DependencyStore = Store<DepFile, &IsDependency>;
+using HeaderStore = Modularize::CheckedFileStore<HeaderFile, &IsHeader>;
+using ImplementationStore = Modularize::CheckedFileStore<ImplementationFile, &IsImplementation>;
+using DependencyStore = Modularize::CheckedFileStore<DepFile, &IsDependency>;
 
 struct
 	FileStore
@@ -487,8 +424,8 @@ struct
 			&	i_rBinaryDir
 		)
 	{
-		::PopulateFiles(i_rSourceDir, vHeaderFiles, vImplementationFiles);
-		::PopulateFiles(i_rBinaryDir, vDependencyFiles);
+		Modularize::PopulateFiles(i_rSourceDir, vHeaderFiles, vImplementationFiles);
+		Modularize::PopulateFiles(i_rBinaryDir, vDependencyFiles);
 		for	(	auto
 				&	rHeader
 			:	vHeaderFiles
