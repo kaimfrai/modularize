@@ -18,7 +18,6 @@ auto
 	return i_rTargetFragment;
 }
 
-
 auto
 (	::Modularize::ModuleInterfaceConverter::ParseLine
 )	(	UnorderedVector<ModuleInterface> const
@@ -30,11 +29,18 @@ auto
 	)
 ->	::std::stringstream*
 {
-	::std::string_view const
+	::std::string_view
 		sNoWhitespace
-	{	i_vLine.begin() + i_vLine.find_first_not_of(" \t")
-	,	i_vLine.end()
-	};
+	=	i_vLine
+	;
+	if	(	auto const
+				nCharacterPos
+			=	i_vLine.find_first_not_of(" \t")
+		;	nCharacterPos
+		!=	::std::string_view::npos
+		)
+		sNoWhitespace.remove_prefix(nCharacterPos);
+
 	//	full-line comments go to the next fragment
 	if	(	sNoWhitespace.starts_with("//")
 		)
@@ -98,10 +104,9 @@ auto
 		return &i_rCurrentFragment;
 	}
 
-
 	//	skip new lines ouside of scopes
 	if	(	sNoWhitespace.empty()
-		and	m_nNestedScopeCounter > 0uz
+		and	m_nNestedScopeCounter == 0uz
 		)
 		return &i_rCurrentFragment;
 
@@ -247,6 +252,7 @@ auto
 					!=	i_rModuleInterfaces.end()
 					)
 				{
+					//	no check for dublicate imports to retain preceeding comments
 					FlushPending(m_vNamedFragment) << "import ";
 					if	(	not
 							vImportedModuleInterfaceIt->m_sPartitionName.empty()
@@ -287,7 +293,7 @@ auto
 		)
 	{
 		//	prepend export to namespace
-		FlushPending(m_vNamedFragment) << "\nexport " << i_vLine << '\n';
+		FlushPending(m_vNamedFragment) << "\nexport\n" << i_vLine << '\n';
 		return &m_vNamedFragment;
 	}
 
@@ -376,18 +382,20 @@ auto
 	<<	"export module "
 	<<	m_rModuleInterface.m_sModuleName
 	;
-	if	(	not	m_rModuleInterface.m_sPartitionName.empty())
-			vWriter
+	if	(	not
+			m_rModuleInterface.m_sPartitionName.empty()
+		)
+		(	vWriter
 		<<	':'
 		<<	m_rModuleInterface.m_sPartitionName
-		;
-		vWriter
-	<<	'\n' << '\n'
-	;
+		);
+	(	vWriter
+	<<	';'
+	<<	'\n'
+	<<	'\n'
+	);
 
 	vWriter << m_vNamedFragment.str();
-	//	new line at the end of the file
-	vWriter << '\n';
 }
 
 auto

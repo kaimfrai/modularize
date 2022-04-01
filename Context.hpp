@@ -24,7 +24,10 @@ namespace
 		return
 		(	vFileName.ends_with(".h")
 		or	vFileName.ends_with(".hpp")
-		or	not vFileName.contains(".")
+		or	(	not vFileName.contains(".")
+			and	//	TODO not the best solution to recognize system headers
+				i_rPath.string().starts_with("/usr/")
+			)
 		);
 	}
 
