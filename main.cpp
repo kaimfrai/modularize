@@ -1,4 +1,5 @@
 #include "CombinedFileStore.hpp"
+#include "ModuleInterfaceConverter.hpp"
 
 #include <iostream>
 #include <span>
@@ -24,14 +25,23 @@ auto
 	=	argv[1]
 	;
 
+	::std::span<char const*> const
+		vArguments
+	{	argv + 2uz
+	,	argc - 2uz
+	};
+
 	if	(vOption == "--analyze")
 	{
 		Modularize::AnalyzeModularity
-		(	::std::span
-			<	char const*
-			>{	argv + 2uz
-			,	argc - 2uz
-			}
+		(	vArguments
+		);
+	}
+	else
+	if	(vOption == "--convert")
+	{
+		Modularize::Modularize
+		(	vArguments
 		);
 	}
 	else

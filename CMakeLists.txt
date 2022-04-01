@@ -4,7 +4,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-project(modularize)
+project(
+	modularize
+LANGUAGES
+	CXX
+)
 
 add_executable(
 	modularize
@@ -14,5 +18,8 @@ add_executable(
 	DependencyFile.cpp
 	Directory.cpp
 	ImplementationFile.cpp
+	ModuleInterfaceConverter.cpp
 )
-add_link_options(-fuse-ld=lld)
+add_link_options(
+	-fuse-ld=lld
+)

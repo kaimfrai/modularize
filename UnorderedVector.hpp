@@ -104,6 +104,25 @@ namespace
 			);
 		}
 
+		template
+			<	typename
+				...	t_tpArgument
+			>
+		auto
+		(	emplace_back
+		)	(	t_tpArgument&&
+				...	i_rpArgument
+			)
+		->	reference
+		{	return
+			m_vElements.emplace_back
+			(	::std::forward<t_tpArgument>
+				(	i_rpArgument
+				)
+				...
+			);
+		}
+
 		[[nodiscard]]
 		auto
 		(	begin
@@ -191,7 +210,7 @@ namespace
 			)	const&
 		->	const_iterator
 		{	return
-			::std::find
+			::std::find_if
 			(	begin()
 			,	end()
 			,	i_rPredicate
