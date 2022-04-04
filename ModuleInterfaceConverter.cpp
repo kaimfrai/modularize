@@ -592,13 +592,13 @@ auto
 	;
 
 	for	(	auto const
-			&	i_rHeader
+			&	rHeader
 		:	vAllFiles.vHeaderFiles
 		)
 	{
 		auto const
 			vFileName
-		=	i_rHeader.m_vPath.filename().replace_extension()
+		=	rHeader.m_vPath.filename().replace_extension()
 		;
 
 		::std::string_view
@@ -612,13 +612,13 @@ auto
 
 		auto const
 			vRelativePath
-		=	SourceDir.RelativePath(i_rHeader.m_vPath).remove_filename()
+		=	SourceDir.RelativePath(rHeader.m_vPath).remove_filename()
 		;
 
 		ModuleInterface
 			vModuleInterface
 		{	.m_vInterface
-			=	i_rHeader
+			=	rHeader
 		,	.m_sModuleName
 		=	{	sRootModuleName.begin()
 			,	sRootModuleName.end()
@@ -665,6 +665,12 @@ auto
 			rModule.m_vPrimaryInterface = vModuleInterface;
 		}
 		else
+		if	(	//	do not export interface partitions in a src folder
+				//	unless they themselves are in an include folder
+				rHeader.m_vPath.native().contains("/include/")
+			or	not
+				rHeader.m_vPath.native().contains("/src/")
+			)
 		{
 			rModule.m_vPartitionInterfaces.push_back(vModuleInterface.m_sPartitionName);
 		}
