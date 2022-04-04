@@ -60,6 +60,22 @@ namespace
 		;
 
 		::std::stringstream
+			m_vPartitionComment
+		;
+
+		::std::vector<::std::string_view>
+			m_vPartitionImports
+		;
+
+		::std::stringstream
+			m_vImportComment
+		;
+
+		::std::vector<::std::string_view>
+			m_vPureImports
+		;
+
+		::std::stringstream
 			m_vNamedFragment
 		;
 
@@ -127,6 +143,18 @@ namespace
 			}
 		,	m_vGlobalFragment
 			{	""
+			}
+		,	m_vPartitionComment
+			{	""
+			}
+		,	m_vPartitionImports
+			{
+			}
+		,	m_vImportComment
+			{	""
+			}
+		,	m_vPureImports
+			{
 			}
 		,	m_vNamedFragment
 			{	""

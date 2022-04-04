@@ -261,6 +261,17 @@ namespace
 		}
 
 		auto
+		(	sort
+		)	()
+		->	void
+		{	return
+			::std::sort
+			(	begin()
+			,	end()
+			);
+		}
+
+		auto
 		(	SwapOut
 		)	(	iterator
 					i_vPosition

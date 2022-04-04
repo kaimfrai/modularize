@@ -32,25 +32,7 @@ namespace
 			,	Directory const
 				&	i_rBinaryDir
 			)
-		{
-			PopulateFiles(i_rSourceDir, vHeaderFiles, vImplementationFiles);
-			PopulateFiles(i_rBinaryDir, vDependencyFiles);
-			for	(	auto
-					&	rHeader
-				:	vHeaderFiles
-				)
-			{
-				if	(rHeader.SetImplementation(vImplementationFiles))
-					rHeader.SetDependency(vDependencyFiles);
-			}
-			for	(	auto
-					&	rImplementation
-				:	vImplementationFiles
-				)
-			{
-				rImplementation.SetDependency(vDependencyFiles);
-			}
-		}
+		;
 	};
 
 	auto

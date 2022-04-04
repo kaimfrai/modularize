@@ -3,6 +3,100 @@
 #include <iostream>
 #include <span>
 
+(	::Modularize::CombinedFileStore::CombinedFileStore
+)	(	Directory const
+		&	i_rSourceDir
+	,	Directory const
+		&	i_rBinaryDir
+	)
+{
+	PopulateFiles(i_rSourceDir, vHeaderFiles, vImplementationFiles);
+	PopulateFiles(i_rBinaryDir, vDependencyFiles);
+
+	for	(	auto
+			&	rImplementation
+		:	vImplementationFiles
+		)
+	{
+		rImplementation.SetDependency(vDependencyFiles);
+	}
+
+	for	(	auto
+			&	rHeader
+		:	vHeaderFiles
+		)
+	{
+		rHeader.SetImplementation(vImplementationFiles);
+	}
+
+	//	add dependencies for header onlies
+	for	(	auto
+			&	rHeader
+		:	vHeaderFiles
+		)
+	{
+		if	(	not
+				rHeader.IsHeaderOnly()
+			)
+			continue;
+
+		::std::size_t
+			nIncludedCount
+		=	0uz
+		;
+		UnorderedVector<::std::filesystem::path>
+		&	rDependencies
+		=	rHeader.m_vImplementation.m_vDependency.m_vDependencies
+		;
+
+		for	(	auto
+				&	rOtherHeader
+			:	vHeaderFiles
+			)
+		{
+			if	(	(	rOtherHeader
+					==	rHeader
+					)
+				or	not
+					rOtherHeader.GetDependencies().contains(rHeader.m_vPath)
+				)
+				continue;
+
+			UnorderedVector<::std::filesystem::path>
+			&	rOtherDependencies
+			=	rOtherHeader.m_vImplementation.m_vDependency.m_vDependencies
+			;
+
+			//	set of dependencies is the intersection of the dependencies of all implementation files
+			//	depending on this header
+			if	(nIncludedCount == 0uz)
+			{
+				rDependencies = rOtherHeader.m_vImplementation.m_vDependency.m_vDependencies;
+				rDependencies.sort();
+			}
+			else
+			{
+				UnorderedVector<::std::filesystem::path>
+					vNewDependencies
+				;
+				rOtherDependencies.sort();
+				::std::set_intersection
+				(	rDependencies.begin()
+				,	rDependencies.end()
+				,	rOtherDependencies.begin()
+				,	rOtherDependencies.end()
+				,	::std::back_inserter
+					(	vNewDependencies
+					)
+				);
+				using ::std::swap;
+				swap(rDependencies, vNewDependencies);
+			}
+			++nIncludedCount;
+		}
+	}
+}
+
 auto
 (	::Modularize::AnalyzeModularity
 )	(	::std::span

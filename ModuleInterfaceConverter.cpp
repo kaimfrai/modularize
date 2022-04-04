@@ -6,6 +6,22 @@
 #include <fstream>
 #include <string>
 
+namespace
+{
+	struct
+		ModularizingCFileException
+		:	::std::runtime_error
+	{
+		explicit(true) inline
+		(	ModularizingCFileException
+		)	()
+		:	::std::runtime_error
+			{	"Attempted to convert C File to module!"
+			}
+		{}
+	};
+}
+
 auto
 (	::Modularize::ModuleInterfaceConverter::FlushPending
 )	(	::std::stringstream
@@ -15,6 +31,7 @@ auto
 {
 	i_rTargetFragment << m_vPending.str();
 	m_vPending.clear();
+	m_vPending.str(::std::string{});
 	return i_rTargetFragment;
 }
 
@@ -45,7 +62,7 @@ auto
 	if	(	sNoWhitespace.starts_with("//")
 		)
 	{
-		((&i_rCurrentFragment == &m_vHeadComment) ? m_vHeadComment : m_vPending) << i_vLine << '\n';
+		 m_vPending << i_vLine << '\n';
 		return &i_rCurrentFragment;
 	}
 
@@ -100,7 +117,7 @@ auto
 		or	nOldBlockCommentCounter > 0uz
 		)
 	{
-		((&i_rCurrentFragment == &m_vHeadComment) ? m_vHeadComment : m_vPending) << i_vLine << '\n';
+		m_vPending	<< i_vLine << '\n';
 		return &i_rCurrentFragment;
 	}
 
@@ -132,6 +149,10 @@ auto
 				(	sPPDirective.begin() + sPPDirective.find_first_not_of(" \t", sizeof("ifndef"))
 				,	sPPDirective.end()
 				);
+
+				// comments before header guard are interpreted as head commment
+				FlushPending(m_vHeadComment);
+
 				return &m_vGlobalFragment;
 			}
 
@@ -167,9 +188,11 @@ auto
 			,	sPPDirective.end()
 			};
 			//	skip only #pragma once
-			if	(	not
-					sPragma.starts_with("once")
+			if	(	sPragma.starts_with("once")
 				)
+				// comments before pragma once are interpreted as head commment
+				FlushPending(m_vHeadComment);
+			else
 				m_vPending << i_vLine << '\n';
 
 			return &i_rCurrentFragment;
@@ -253,7 +276,6 @@ auto
 					)
 				{
 					//	no check for dublicate imports to retain preceeding comments
-					FlushPending(m_vNamedFragment) << "import ";
 					if	(	not
 							vImportedModuleInterfaceIt->m_sPartitionName.empty()
 						and	(	vImportedModuleInterfaceIt->m_sModuleName
@@ -261,12 +283,39 @@ auto
 							)
 						)
 					{
-						m_vNamedFragment << ':' << vImportedModuleInterfaceIt->m_sPartitionName;
+						FlushPending(m_vPartitionComment);
+						if	(	auto
+									vInsertPosition
+								=	::std::lower_bound
+									(	m_vPartitionImports.begin()
+									,	m_vPartitionImports.end()
+									,	vImportedModuleInterfaceIt->m_sPartitionName
+									)
+							;	vInsertPosition == m_vPartitionImports.end()
+							or	*vInsertPosition != vImportedModuleInterfaceIt->m_sPartitionName
+							)
+						{
+							m_vPartitionImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sPartitionName);
+						}
 					}
 					else
-						m_vNamedFragment << vImportedModuleInterfaceIt->m_sModuleName;
+					{
+						FlushPending(m_vImportComment);
+						if	(	auto
+									vInsertPosition
+								=	::std::lower_bound
+									(	m_vPureImports.begin()
+									,	m_vPureImports.end()
+									,	vImportedModuleInterfaceIt->m_sModuleName
+									)
+							;	vInsertPosition == m_vPureImports.end()
+							or	*vInsertPosition != vImportedModuleInterfaceIt->m_sModuleName
+							)
+						{
+							m_vPureImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sModuleName);
+						}
+					}
 
-					m_vNamedFragment << ';' << '\n';
 					return &m_vNamedFragment;
 				}
 			}
@@ -281,20 +330,79 @@ auto
 		return &i_rCurrentFragment;
 	}
 
+	if	(	sNoWhitespace.starts_with("extern")
+		)
+	{
+		::std::string_view const
+			sExtern
+		{	sNoWhitespace.begin() + sNoWhitespace.find_first_not_of(" \t", sizeof("extern"))
+		,	sNoWhitespace.end()
+		};
+		if	(sExtern.starts_with("\"C\""))
+		{
+			//	extern C indicates that this file is used as a C file, do not convert those
+			throw ModularizingCFileException{};
+		}
+	}
+
 	//	global entity needs to be exported
 	if	(	nOldNestedScopeCounter == 0uz
-		and	(	sNoWhitespace.starts_with("namespace")
+		)
+	{
+		if	(	sNoWhitespace.starts_with("static")
+			)
+		{
+			//	do not export static
+			FlushPending(m_vNamedFragment) << i_vLine << '\n';
+			return &m_vNamedFragment;
+		}
+
+		if	(	sNoWhitespace.starts_with("using")
+			)
+		{
+			::std::string_view const
+				sUsing
+			{	sNoWhitespace.begin() + sNoWhitespace.find_first_not_of(" \t", sizeof("using"))
+			,	sNoWhitespace.end()
+			};
+
+			auto const vScopePos = sNoWhitespace.find_first_of(":");
+			auto const vAssignPos = sNoWhitespace.find_first_of("=");
+
+
+			if	(	sUsing.starts_with("namespace")
+				or	(	vScopePos
+					<	vAssignPos
+					)
+				)
+			{
+				//	do not export using directives unless they are an alias
+				FlushPending(m_vNamedFragment) << i_vLine << '\n';
+				return &m_vNamedFragment;
+			}
+		}
+
+		//	heuristic for global entities
+		if	(	sNoWhitespace.starts_with("namespace")
 			or	sNoWhitespace.starts_with("typedef")
 			or	sNoWhitespace.starts_with("using")
 			or	sNoWhitespace.starts_with("class")
 			or	sNoWhitespace.starts_with("struct")
 			or	sNoWhitespace.starts_with("union")
+			or	sNoWhitespace.starts_with("enum")
+			or	sNoWhitespace.starts_with("template")
+			or	sNoWhitespace.starts_with("const")
+			or	sNoWhitespace.starts_with("constexpr")
+			or	sNoWhitespace.starts_with("inline")
+			or	sNoWhitespace.starts_with("auto")
+			or	sNoWhitespace.starts_with("void")
 			)
-		)
-	{
-		//	prepend export to namespace
-		FlushPending(m_vNamedFragment) << "\nexport\n" << i_vLine << '\n';
-		return &m_vNamedFragment;
+		{
+			//	new line for export makes git diff cleaner
+			m_vNamedFragment << '\n';
+			FlushPending(m_vNamedFragment) << "export\n" << i_vLine << '\n';
+			return &m_vNamedFragment;
+		}
 	}
 
 	FlushPending(i_rCurrentFragment) << i_vLine << '\n';
@@ -359,8 +467,8 @@ auto
 	{
 			vWriter
 		<<	m_vHeadComment.str()
-		//	new line between head comment and first fragment
-		<<	'\n'
+		//	no new line between head comment and first fragment
+// 		<<	'\n'
 		;
 	}
 
@@ -370,7 +478,7 @@ auto
 			()
 		)
 	{		vWriter
-		<<	"module;\n"
+		<<	"module;\n\n"
 		<<	m_vGlobalFragment.str()
 		//	new line between global and named fragment
 		<<	'\n';
@@ -392,9 +500,42 @@ auto
 	(	vWriter
 	<<	';'
 	<<	'\n'
-	<<	'\n'
 	);
 
+	if	(	not
+			m_vPartitionImports.empty()
+		)
+	{
+		vWriter << '\n';
+		vWriter << m_vPartitionComment.str();
+		for	(	auto const
+				&	sPartitionName
+			:	m_vPartitionImports
+			)
+		{
+			vWriter << "import :" << sPartitionName << ';' << '\n';
+		}
+	}
+
+	if	(	not
+			m_vPureImports.empty()
+		)
+	{
+		vWriter << '\n';
+		vWriter << m_vImportComment.str();
+		for	(	auto const
+				&	sImportName
+			:	m_vPureImports
+			)
+		{
+			vWriter << "import " << sImportName << ';' << '\n';
+		}
+	}
+
+	if	(	m_vNamedFragment.str()[0uz]
+		!=	'\n'
+		)
+		vWriter << '\n';
 	vWriter << m_vNamedFragment.str();
 }
 
@@ -405,26 +546,8 @@ auto
 	)
 ->	void
 {
-// 	if	(	auto const
-// 				vModuleInterfaceIt
-// 			=	i_rProcessed.find_if
-// 				(	[	this
-// 					]	(	ModuleInterface const
-// 							&	i_rModuleInterface
-// 						)
-// 					{
-// 						return i_rModuleInterface == m_rModuleInterface;
-// 					}
-// 				)
-// 		;	vModuleInterfaceIt
-// 		!=	i_rProcessed.end()
-// 		)
-// 		return *vModuleInterfaceIt;
-
 	ReadModule(i_rModuleInterfaces);
 	WriteModule();
-
-// 	return i_rProcessed.emplace_back(m_rModuleInterface);
 }
 
 
@@ -451,6 +574,11 @@ auto
 		vAllFiles
 	{	SourceDir
 	,	BinaryDir
+	};
+	DirectoryRelativeStream
+		cout
+	{	SourceDir
+	,	::std::cout
 	};
 
 	UnorderedVector<ModuleInterface>
@@ -539,11 +667,26 @@ auto
 		{	rModuleInterface
 		};
 
-		vConverter.ProcessFile
-		(	vModuleInterfaces
-		);
+		try
+		{
+			vConverter.ProcessFile
+			(	vModuleInterfaces
+			);
+		}
+		catch
+			(	ModularizingCFileException const
+				&	e_rException
+			)
+		{
+			cout << "Did not convert C-File " << rModuleInterface.m_vInterface;
+		}
+	}
 
-		::std::cout << rModuleInterface.m_vInterface.m_vPath;
-		break;
+	for	(	auto const
+			&	rImplementation
+		:	vAllFiles.vImplementationFiles
+		)
+	{
+		cout << "Did not convert implementation file without interface " << rImplementation;
 	}
 }
