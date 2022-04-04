@@ -28,7 +28,7 @@ auto
 	::std::span<char const*> const
 		vArguments
 	{	argv + 2uz
-	,	argc - 2uz
+	,	static_cast<::std::size_t>(argc) - 2uz
 	};
 
 	if	(vOption == "--analyze")

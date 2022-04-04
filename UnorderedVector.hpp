@@ -311,7 +311,7 @@ namespace
 		{	return
 			SwapOut
 			(	begin()
-			+	i_nIndex
+			+	static_cast<::std::ptrdiff_t>(i_nIndex)
 			);
 		}
 

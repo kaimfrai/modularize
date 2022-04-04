@@ -4,6 +4,8 @@
 #include <iostream>
 
 namespace
+	Modularize
+{	namespace
 {
 	struct
 		InvalidHeaderFileException
@@ -17,7 +19,92 @@ namespace
 			}
 		{}
 	};
-}
+
+	auto
+	(	SearchImplementation
+	)	(	::std::filesystem::path
+				i_vBase
+		,	Modularize::UnorderedVector<ImplementationFile>
+			&	i_rImplementationFiles
+		)
+	->	typename Modularize::UnorderedVector<ImplementationFile>::iterator
+	{
+		i_vBase.replace_extension();
+		::std::string
+			vSameDir
+		=	i_vBase
+		;
+
+		auto const
+			fPriority1
+		=	[	&vSameDir
+			]	(	ImplementationFile const
+					&	i_rPath
+				)
+			->	bool
+			{
+				::std::filesystem::path vNoExt = i_rPath.m_vPath;
+				vNoExt.replace_extension();
+				return vSameDir == vNoExt;
+			}
+		;
+
+		if	(	auto const
+					vIncludePos
+				=	vSameDir.find("include")
+			;		vIncludePos
+				<	vSameDir.length()
+			)
+		{
+			::std::string
+				vSrcDir
+			=	vSameDir
+			;
+			vSrcDir.replace(vIncludePos, 7uz, "src");
+
+			auto const
+				fPriority2
+			=	[	vSrcDir
+				]	(	ImplementationFile const
+						&	i_rPath
+					)
+				->	bool
+				{
+					::std::filesystem::path vNoExt = i_rPath.m_vPath;
+					vNoExt.replace_extension();
+					return vSrcDir == vNoExt;
+				}
+			;
+
+			vSrcDir.replace(vIncludePos, 4uz, "");
+			auto const
+				fPriority3
+			=	[	vSrcDir
+				]	(	ImplementationFile const
+						&	i_rPath
+					)
+				->	bool
+				{
+					::std::filesystem::path vNoExt = i_rPath.m_vPath;
+					vNoExt.replace_extension();
+					return vSrcDir == vNoExt;
+				}
+			;
+
+			return
+			i_rImplementationFiles.FindByPriority
+			(	fPriority1
+			,	fPriority2
+			,	fPriority3
+			);
+		}
+		else
+			return
+			i_rImplementationFiles.FindByPriority
+			(	fPriority1
+			);
+	}
+}}
 
 (	::Modularize::HeaderFile::HeaderFile
 )	(	::std::filesystem::path const

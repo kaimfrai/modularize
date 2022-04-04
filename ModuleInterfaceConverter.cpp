@@ -675,7 +675,7 @@ auto
 		}
 		catch
 			(	ModularizingCFileException const
-				&	e_rException
+				&
 			)
 		{
 			cout << "Did not convert C-File " << rModuleInterface.m_vInterface;

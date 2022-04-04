@@ -190,4 +190,17 @@ namespace
 			return i_rStream;
 		}
 	};
+
+	template
+		<	typename
+				t_tOutStream
+		>
+	(	DirectoryRelativeStream
+	)	(	Directory
+		,	t_tOutStream
+		)
+	->	DirectoryRelativeStream
+		<	t_tOutStream
+		>
+	;
 }

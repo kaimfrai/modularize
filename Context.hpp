@@ -79,7 +79,7 @@ namespace
 		Context
 	{
 		Directory
-			m_vSourceDirectory;
+			m_vSourceDirectory
 		;
 		Directory
 			m_vBinaryDirectory

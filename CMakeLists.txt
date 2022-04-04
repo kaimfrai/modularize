@@ -20,6 +20,25 @@ add_executable(
 	ImplementationFile.cpp
 	ModuleInterfaceConverter.cpp
 )
-add_link_options(
+target_compile_options(
+	modularize
+PRIVATE
+	-Wall
+	-Wextra
+	-Wpedantic
+	-Wconversion
+	-Wdeprecated
+	-Wmissing-variable-declarations
+	-Wctad-maybe-unsupported
+	-Werror
+	-Weverything
+	# using C++23
+	-Wno-c++98-compat-pedantic
+	# using c++23
+	-Wno-c++20-compat-pedantic
+)
+target_link_options(
+	modularize
+PUBLIC
 	-fuse-ld=lld
 )
