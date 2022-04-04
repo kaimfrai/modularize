@@ -4,6 +4,7 @@
 #include "UnorderedVector.hpp"
 
 #include <fstream>
+#include <map>
 #include <string>
 
 namespace
@@ -586,6 +587,10 @@ auto
 	;
 	vModuleInterfaces.reserve(vAllFiles.vHeaderFiles.size());
 
+	::std::map<::std::string, Module>
+		vModules
+	;
+
 	for	(	auto const
 			&	i_rHeader
 		:	vAllFiles.vHeaderFiles
@@ -654,6 +659,16 @@ auto
 		}
 
 		vModuleInterface.m_sPartitionName = sFileName;
+		auto& rModule = vModules[vModuleInterface.m_sModuleName];
+		if	(vModuleInterface.m_sPartitionName.empty())
+		{
+			rModule.m_vPrimaryInterface = vModuleInterface;
+		}
+		else
+		{
+			rModule.m_vPartitionInterfaces.push_back(vModuleInterface.m_sPartitionName);
+		}
+
 		vModuleInterfaces.push_back(vModuleInterface);
 	}
 
@@ -679,6 +694,65 @@ auto
 			)
 		{
 			cout << "Did not convert C-File " << rModuleInterface.m_vInterface;
+		}
+	}
+
+	for	(	auto&
+			[	sModuleName
+			,	vModule
+			]
+		:	vModules
+		)
+	{
+		if	(vModule.m_vPrimaryInterface.m_vInterface.m_vPath.native().empty())
+		{
+			::std::string
+				sFileName
+			=	sModuleName
+			;
+			::std::replace(sFileName.begin(), sFileName.end(), '.', ::std::filesystem::path::preferred_separator);
+			// use .hpp as extension for module interfaces for now
+			sFileName += ".hpp";
+			sFileName = sFileName.substr(sRootModuleName.size()+ 1uz);
+			cout << "Creating new file " << sFileName << " as primary interface for module " << sModuleName << '\n';
+
+			::std::filesystem::path
+				vInterfacePath
+			=	SourceDir / sFileName
+			;
+
+			if	(exists(vInterfacePath))
+			{
+				cout << "Attempt cancelled as this file already exists!\n";
+				break;
+			}
+
+			::std::ofstream
+				sInterface
+			{	vInterfacePath
+			};
+			if	(sInterface.is_open())
+			{
+				sInterface << "export module " << sModuleName << ';' << '\n';
+
+				for	(	::std::string_view
+							sPartition
+					:	vModule.m_vPartitionInterfaces
+					)
+				{
+					sInterface << "\nexport import :" << sPartition << ';';
+				}
+				sInterface << ::std::endl;
+				sInterface.close();
+			}
+			else
+			{
+				cout << "Could not write to the file!\n";
+			}
+		}
+		else
+		{
+			cout << "Designating existing file " << vModule.m_vPrimaryInterface.m_vInterface << " as primary module interface for module " << sModuleName << ". Exports require manual adjustment!\n";
 		}
 	}
 

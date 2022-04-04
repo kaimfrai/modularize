@@ -176,6 +176,17 @@ namespace
 		;
 	};
 
+	struct
+		Module
+	{
+		ModuleInterface
+			m_vPrimaryInterface
+		;
+		UnorderedVector<::std::string>
+			m_vPartitionInterfaces
+		;
+	};
+
 	auto
 	(	Modularize
 	)	(	::std::span
