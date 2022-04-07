@@ -76,31 +76,34 @@ namespace
 	public:
 		explicit(true) inline
 		(	Context
-		)	(	Directory const
-				&	i_rSourceDirectory
-			,	Directory const
-				&	i_rBinaryDirectory
+		)	(	Directory
+					i_vSourceDirectory
+			,	Directory
+					i_vBinaryDirectory
 			)
 		:	m_vSourceDirectory
-			{	i_rSourceDirectory
+			{	::std::move(i_vSourceDirectory)
 			}
 		,	m_vBinaryDirectory
-			{	i_rBinaryDirectory
+			{	::std::move(i_vBinaryDirectory)
 			}
 		{}
 
+		[[nodiscard]]
 		auto inline
 		(	GetSourceDirectory
 		)	()	const&
 		->	Directory const&
 		{	return m_vSourceDirectory;	}
 
+		[[nodiscard]]
 		auto inline
 		(	GetBinaryDirectory
 		)	()	const&
 		->	Directory const&
 		{	return m_vBinaryDirectory;	}
 
+		[[nodiscard]]
 		auto inline
 		(	StandardLog
 		)	()	const
@@ -112,6 +115,7 @@ namespace
 			};
 		}
 
+		[[nodiscard]]
 		auto inline
 		(	ErrorLog
 		)	()	const

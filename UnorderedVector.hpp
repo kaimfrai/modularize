@@ -327,7 +327,7 @@ namespace
 			)	&
 		->	iterator
 		{
-			iterator
+			auto
 				vPosition
 			=	end()
 			;
@@ -349,6 +349,7 @@ namespace
 			<	typename
 				...	t_tpPredicate
 			>
+		[[nodiscard]]
 		auto
 		(	FindByPriority
 		)	(	t_tpPredicate const

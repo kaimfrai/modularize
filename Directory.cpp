@@ -21,11 +21,11 @@ namespace
 }
 
 (	::Modularize::Directory::Directory
-)	(	::std::filesystem::path const
-		&	i_rPath
+)	(	::std::filesystem::path
+			i_vPath
 	)
 :	m_vPath
-	{	i_rPath
+	{	::std::move(i_vPath)
 	}
 {
 	if	(	not exists(m_vPath)

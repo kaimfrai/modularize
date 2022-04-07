@@ -18,8 +18,7 @@ namespace
 	public:
 		explicit(true)
 		(	Directory
-		)	(	::std::filesystem::path const
-				&	i_rPath
+		)	(	::std::filesystem::path
 			)
 		;
 
@@ -65,6 +64,7 @@ namespace
 			);
 		}
 
+		[[nodiscard]]
 		auto inline
 		(	begin
 		)	()	const
@@ -76,6 +76,7 @@ namespace
 			};
 		}
 
+		[[nodiscard]]
 		auto inline
 		(	end
 		)	()	const
@@ -130,13 +131,13 @@ namespace
 	public:
 		explicit(true) inline
 		(	DirectoryRelativeStream
-		)	(	Directory const
-				&	i_rDirectory
+		)	(	Directory
+					i_vDirectory
 			,	t_tOutStream
 				&	i_rOut
 			)
 		:	m_vDirectory
-			{	i_rDirectory
+			{	::std::move(i_vDirectory)
 			}
 		,	m_rOut
 			{	i_rOut
