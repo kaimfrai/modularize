@@ -41,17 +41,24 @@ namespace
 			)
 		{
 			if	(not i_rEntry.is_regular_file())
+			{
+				//::std::cerr << "Irregular file: " << i_rEntry.path() << std::endl;
 				continue;
+			}
 
 			auto const
 			&	rPath
 			=	i_rEntry.path()
 			;
 
-			(void)
-			(	...
-			or	i_rStore.AddEntry(rPath)
-			);
+			if	(	not
+					((	...
+					or	i_rStore.AddEntry(rPath)
+					))
+				)
+			{
+				//::std::cerr << "File not added: " << i_rEntry.path() << ::std::endl;
+			}
 		}
 	}
 

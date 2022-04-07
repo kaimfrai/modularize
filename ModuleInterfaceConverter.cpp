@@ -333,8 +333,10 @@ auto
 						or	*vInsertPosition != sInclude
 						)
 					{
-						m_vStandardImports.insert(vInsertPosition, sInclude);
+						m_vStandardImports.emplace(vInsertPosition, sInclude.begin(), sInclude.end());
 					}
+
+					return &m_vNamedFragment;
 				}
 			}
 
@@ -377,6 +379,17 @@ auto
 			or	sNoWhitespace.starts_with("inline")
 			or	sNoWhitespace.starts_with("auto")
 			or	sNoWhitespace.starts_with("void")
+			or	sNoWhitespace.starts_with("bool")
+			or	sNoWhitespace.starts_with("char")
+			or	sNoWhitespace.starts_with("short")
+			or	sNoWhitespace.starts_with("int")
+			or	sNoWhitespace.starts_with("float")
+			or	sNoWhitespace.starts_with("double")
+			or	sNoWhitespace.starts_with("long")
+			or	sNoWhitespace.starts_with("unsigned")
+			or	sNoWhitespace.starts_with("signed")
+			or	sNoWhitespace.starts_with("std::")
+			or	sNoWhitespace.starts_with("::std::")
 			)
 		{
 			m_vNamedFragment << '\n';

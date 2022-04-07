@@ -93,7 +93,8 @@ namespace
 			m_vStandardComment
 		;
 
-		::std::vector<::std::string_view>
+		//	ownership required here!
+		::std::vector<::std::string>
 			m_vStandardImports
 		;
 
@@ -233,7 +234,7 @@ namespace
 				)
 			{
 				m_sExportModule = "export module ";
-				m_sExportImport = "export import";
+				m_sExportImport = "export import ";
 				//	new line for export makes git diff cleaner
 				m_sExportEntity = "export\n";
 			}
