@@ -21,6 +21,10 @@ namespace
 			m_sPartitionName
 		;
 
+		bool
+			m_bExport
+		;
+
 		friend auto inline
 		(	operator ==
 		)	(	ModuleInterface const
@@ -40,8 +44,18 @@ namespace
 	class
 		ModuleInterfaceConverter
 	{
-		ModuleInterface const
-		&	m_rModuleInterface
+		::std::filesystem::path const
+		&	m_rFilePath
+		;
+		::std::string_view
+			m_sModuleName
+		;
+		::std::string_view
+			m_sPartitionName
+		;
+
+		UnorderedVector<::std::filesystem::path> const
+		&	m_rDependencies
 		;
 
 		::std::stringstream
@@ -76,6 +90,14 @@ namespace
 		;
 
 		::std::stringstream
+			m_vStandardComment
+		;
+
+		::std::vector<::std::string_view>
+			m_vStandardImports
+		;
+
+		::std::stringstream
 			m_vNamedFragment
 		;
 
@@ -87,6 +109,18 @@ namespace
 		;
 		::std::size_t
 			m_nNestedScopeCounter
+		;
+
+		::std::string_view
+			m_sExportModule
+		;
+
+		::std::string_view
+			m_sExportImport
+		;
+
+		::std::string_view
+			m_sExportEntity
 		;
 
 		auto
@@ -109,28 +143,29 @@ namespace
 		->	::std::stringstream*
 		;
 
-		auto
-		(	ReadModule
-		)	(	UnorderedVector<ModuleInterface> const
-				&	i_rModuleInterfaces
-			)
-		->	void
-		;
-
-		auto
-		(	WriteModule
-		)	()
-		->	void
-		;
-
 	public:
 		explicit(true)
 		(	ModuleInterfaceConverter
-		)	(	ModuleInterface const
-				&	i_rModuleInterface
+		)	(	::std::filesystem::path const
+				&	i_rFilePath
+			,	::std::string_view
+					i_sModuleName
+			,	::std::string_view
+					i_sPartitionName
+			,	UnorderedVector<::std::filesystem::path> const
+				&	i_rDependencies
 			)
-		:	m_rModuleInterface
-			{	i_rModuleInterface
+		:	m_rFilePath
+			{	i_rFilePath
+			}
+		,	m_sModuleName
+			{	i_sModuleName
+			}
+		,	m_sPartitionName
+			{	i_sPartitionName
+			}
+		,	m_rDependencies
+			{	i_rDependencies
 			}
 		,	m_vHeadComment
 			{	""
@@ -156,6 +191,12 @@ namespace
 		,	m_vPureImports
 			{
 			}
+		,	m_vStandardComment
+			{	""
+			}
+		,	m_vStandardImports
+			{
+			}
 		,	m_vNamedFragment
 			{	""
 			}
@@ -165,13 +206,50 @@ namespace
 			{}
 		,	m_nNestedScopeCounter
 			{}
+		,	m_sExportModule
+			{	"module "
+			}
+		,	m_sExportImport
+			{	"import "
+			}
+		,	m_sExportEntity
+			{	""
+			}
 		{}
 
+		explicit(true)
+		(	ModuleInterfaceConverter
+		)	(	ModuleInterface const
+				&	i_rModuleInterface
+			)
+		:	ModuleInterfaceConverter
+			{	i_rModuleInterface.m_vInterface.m_vPath
+			,	i_rModuleInterface.m_sModuleName
+			,	i_rModuleInterface.m_sPartitionName
+			,	i_rModuleInterface.m_vInterface.GetDependencies()
+			}
+		{
+			if	(	i_rModuleInterface.m_bExport
+				)
+			{
+				m_sExportModule = "export module ";
+				m_sExportImport = "export import";
+				//	new line for export makes git diff cleaner
+				m_sExportEntity = "export\n";
+			}
+		}
+
 		auto
-		(	ProcessFile
+		(	ReadModule
 		)	(	UnorderedVector<ModuleInterface> const
 				&	i_rModuleInterfaces
 			)
+		->	void
+		;
+
+		auto
+		(	WriteModule
+		)	()
 		->	void
 		;
 	};

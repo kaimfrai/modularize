@@ -67,8 +67,22 @@ namespace
 			,	ImplementationFile const
 				&	i_rRight
 			)
+		->	::std::strong_ordering
 		{
 			return i_rLeft.m_vPath <=> i_rRight.m_vPath;
+		}
+
+		[[nodiscard]]
+		friend auto inline
+		(	operator ==
+		)	(	ImplementationFile const
+				&	i_rLeft
+			,	ImplementationFile const
+				&	i_rRight
+			)
+		->	bool
+		{
+			return i_rLeft.m_vPath == i_rRight.m_vPath;
 		}
 
 		friend auto inline

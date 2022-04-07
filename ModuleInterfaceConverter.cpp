@@ -7,21 +7,6 @@
 #include <map>
 #include <string>
 
-namespace
-{
-	struct
-		ModularizingCFileException
-		:	::std::runtime_error
-	{
-		explicit(true) inline
-		(	ModularizingCFileException
-		)	()
-		:	::std::runtime_error
-			{	"Attempted to convert C File to module!"
-			}
-		{}
-	};
-}
 
 auto
 (	::Modularize::ModuleInterfaceConverter::FlushPending
@@ -63,7 +48,7 @@ auto
 	if	(	sNoWhitespace.starts_with("//")
 		)
 	{
-		 m_vPending << i_vLine << '\n';
+		m_vPending << i_vLine << '\n';
 		return &i_rCurrentFragment;
 	}
 
@@ -233,7 +218,8 @@ auto
 		{
 			::std::string_view const
 				sInclude
-			{	sPPDirective.begin() + sPPDirective.find_first_not_of(" \t\"<", sizeof("include"))
+			{	// ignore relative paths too
+				sPPDirective.begin() + sPPDirective.find_first_not_of(" \t.\\/\"<", sizeof("include"))
 			,	sPPDirective.begin() + sPPDirective.find_last_of(">\"")
 			};
 
@@ -241,7 +227,7 @@ auto
 			//	there could be multiple files with the same name in different directories
 			if	(	auto const
 						vPathIt
-					=	m_rModuleInterface.m_vInterface.GetDependencies().find_if
+					=	m_rDependencies.find_if
 						(	[	sInclude
 							]	(	::std::filesystem::path const
 									&	i_rDependencyPath
@@ -254,7 +240,7 @@ auto
 							}
 						)
 				;	vPathIt
-				!=	m_rModuleInterface.m_vInterface.GetDependencies().end()
+				!=	m_rDependencies.end()
 				)
 			{
 				if	(	auto const
@@ -276,15 +262,23 @@ auto
 					!=	i_rModuleInterfaces.end()
 					)
 				{
-					//	no check for dublicate imports to retain preceeding comments
 					if	(	not
 							vImportedModuleInterfaceIt->m_sPartitionName.empty()
 						and	(	vImportedModuleInterfaceIt->m_sModuleName
-							==	m_rModuleInterface.m_sModuleName
+							==	m_sModuleName
 							)
 						)
 					{
-						FlushPending(m_vPartitionComment);
+						//	first comment always head comment
+						FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vPartitionComment);
+						if	(	vImportedModuleInterfaceIt->m_sPartitionName
+							==	m_sPartitionName
+							)
+						{
+							//	no import of self
+							return &m_vNamedFragment;
+						}
+						else
 						if	(	auto
 									vInsertPosition
 								=	::std::lower_bound
@@ -301,7 +295,8 @@ auto
 					}
 					else
 					{
-						FlushPending(m_vImportComment);
+						//	first comment always head comment
+						FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vImportComment);
 						if	(	auto
 									vInsertPosition
 								=	::std::lower_bound
@@ -319,31 +314,40 @@ auto
 
 					return &m_vNamedFragment;
 				}
+				else
+				//	standard header can be imported
+				if	(	vPathIt->extension().native()
+					==	""
+					)
+				{
+					//	first comment always head comment
+					FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vStandardComment);
+					if	(	auto
+								vInsertPosition
+							=	::std::lower_bound
+								(	m_vStandardImports.begin()
+								,	m_vStandardImports.end()
+								,	sInclude
+								)
+						;	vInsertPosition == m_vStandardImports.end()
+						or	*vInsertPosition != sInclude
+						)
+					{
+						m_vStandardImports.insert(vInsertPosition, sInclude);
+					}
+				}
 			}
 
+			//	first comment always head comment
+			FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vGlobalFragment);
 			//	no module interface found => global header
-			FlushPending(m_vGlobalFragment) << i_vLine << '\n';
+			m_vGlobalFragment << i_vLine << '\n';
 			return &m_vGlobalFragment;
 		}
 
 		//	bundle all other directives together with next fragment
 		m_vPending << i_vLine << '\n';
 		return &i_rCurrentFragment;
-	}
-
-	if	(	sNoWhitespace.starts_with("extern")
-		)
-	{
-		::std::string_view const
-			sExtern
-		{	sNoWhitespace.begin() + sNoWhitespace.find_first_not_of(" \t", sizeof("extern"))
-		,	sNoWhitespace.end()
-		};
-		if	(sExtern.starts_with("\"C\""))
-		{
-			//	extern C indicates that this file is used as a C file, do not convert those
-			throw ModularizingCFileException{};
-		}
 	}
 
 	//	global entity needs to be exported
@@ -358,33 +362,9 @@ auto
 			return &m_vNamedFragment;
 		}
 
-		if	(	sNoWhitespace.starts_with("using")
-			)
-		{
-			::std::string_view const
-				sUsing
-			{	sNoWhitespace.begin() + sNoWhitespace.find_first_not_of(" \t", sizeof("using"))
-			,	sNoWhitespace.end()
-			};
-
-			auto const vScopePos = sNoWhitespace.find_first_of(":");
-			auto const vAssignPos = sNoWhitespace.find_first_of("=");
-
-
-			if	(	sUsing.starts_with("namespace")
-				or	(	vScopePos
-					<	vAssignPos
-					)
-				)
-			{
-				//	do not export using directives unless they are an alias
-				FlushPending(m_vNamedFragment) << i_vLine << '\n';
-				return &m_vNamedFragment;
-			}
-		}
-
 		//	heuristic for global entities
 		if	(	sNoWhitespace.starts_with("namespace")
+			or	sNoWhitespace.starts_with("extern")
 			or	sNoWhitespace.starts_with("typedef")
 			or	sNoWhitespace.starts_with("using")
 			or	sNoWhitespace.starts_with("class")
@@ -399,9 +379,11 @@ auto
 			or	sNoWhitespace.starts_with("void")
 			)
 		{
-			//	new line for export makes git diff cleaner
 			m_vNamedFragment << '\n';
-			FlushPending(m_vNamedFragment) << "export\n" << i_vLine << '\n';
+				FlushPending(m_vNamedFragment)
+			<<	m_sExportEntity
+			<< i_vLine << '\n'
+			;
 			return &m_vNamedFragment;
 		}
 	}
@@ -419,7 +401,7 @@ auto
 {
 	::std::ifstream
 		vContent
-	=	m_rModuleInterface.m_vInterface.m_vPath
+	=	m_rFilePath
 	;
 
 	::std::string
@@ -457,7 +439,7 @@ auto
 {
 	::std::ofstream
 		vWriter
-	=	m_rModuleInterface.m_vInterface.m_vPath
+	=	m_rFilePath
 	;
 
 	if	(	not
@@ -487,16 +469,17 @@ auto
 	}
 
 	//	write named module fragment
-		vWriter
-	<<	"export module "
-	<<	m_rModuleInterface.m_sModuleName
-	;
+
+	(	vWriter
+	<<	m_sExportModule
+	<<	m_sModuleName
+	);
 	if	(	not
-			m_rModuleInterface.m_sPartitionName.empty()
+			m_sPartitionName.empty()
 		)
 		(	vWriter
 		<<	':'
-		<<	m_rModuleInterface.m_sPartitionName
+		<<	m_sPartitionName
 		);
 	(	vWriter
 	<<	';'
@@ -514,7 +497,7 @@ auto
 			:	m_vPartitionImports
 			)
 		{
-			vWriter << "import :" << sPartitionName << ';' << '\n';
+			vWriter << m_sExportImport << ':' << sPartitionName << ';' << '\n';
 		}
 	}
 
@@ -529,7 +512,23 @@ auto
 			:	m_vPureImports
 			)
 		{
-			vWriter << "import " << sImportName << ';' << '\n';
+			vWriter << m_sExportImport << sImportName << ';' << '\n';
+		}
+	}
+
+	if	(	not
+			m_vStandardImports.empty()
+		)
+	{
+		vWriter << '\n';
+		vWriter << m_vImportComment.str();
+		for	(	auto const
+				&	sImportName
+			:	m_vStandardImports
+			)
+		{
+			// always use <> for standard imports
+			vWriter << m_sExportImport << '<' << sImportName << '>' << ';' << '\n';
 		}
 	}
 
@@ -539,18 +538,6 @@ auto
 		vWriter << '\n';
 	vWriter << m_vNamedFragment.str();
 }
-
-auto
-(	::Modularize::ModuleInterfaceConverter::ProcessFile
-)	(	UnorderedVector<ModuleInterface> const
-		&	i_rModuleInterfaces
-	)
-->	void
-{
-	ReadModule(i_rModuleInterfaces);
-	WriteModule();
-}
-
 
 auto
 (	::Modularize::Modularize
@@ -623,6 +610,7 @@ auto
 		=	{	sRootModuleName.begin()
 			,	sRootModuleName.end()
 			}
+		,	.m_bExport = true
 		};
 
 
@@ -656,6 +644,8 @@ auto
 				vModuleInterface.m_sModuleName += '.';
 				vModuleInterface.m_sModuleName += sDirectory;
 			}
+			if	(sDirectory == "src")
+				vModuleInterface.m_bExport = false;
 		}
 
 		vModuleInterface.m_sPartitionName = sFileName;
@@ -665,11 +655,7 @@ auto
 			rModule.m_vPrimaryInterface = vModuleInterface;
 		}
 		else
-		if	(	//	do not export interface partitions in a src folder
-				//	unless they themselves are in an include folder
-				rHeader.m_vPath.native().contains("/include/")
-			or	not
-				rHeader.m_vPath.native().contains("/src/")
+		if	(	vModuleInterface.m_bExport
 			)
 		{
 			rModule.m_vPartitionInterfaces.push_back(vModuleInterface.m_sPartitionName);
@@ -683,23 +669,42 @@ auto
 		:	vModuleInterfaces
 		)
 	{
-		ModuleInterfaceConverter
-			vConverter
-		{	rModuleInterface
-		};
-
 		try
-		{
-			vConverter.ProcessFile
+		{	ModuleInterfaceConverter
+				vInterfaceConverter
+			{	rModuleInterface
+			};
+			vInterfaceConverter.ReadModule
 			(	vModuleInterfaces
 			);
+
+			if	(not rModuleInterface.m_vInterface.IsHeaderOnly())
+			{
+				// cannot share the same partitionname among multiple module units!
+				::std::string const
+					sPartitionName
+				=	rModuleInterface.m_sPartitionName
+				+	".Obj"
+				;
+				ModuleInterfaceConverter
+					vImplementationConverter
+				{	rModuleInterface.m_vInterface.m_vImplementation.m_vPath
+				,	rModuleInterface.m_sModuleName
+				,	sPartitionName
+				,	rModuleInterface.m_vInterface.m_vImplementation.GetDependencies()
+				};
+				vImplementationConverter.ReadModule
+				(	vModuleInterfaces
+				);
+				vImplementationConverter.WriteModule();
+			}
+			vInterfaceConverter.WriteModule();
 		}
 		catch
-			(	ModularizingCFileException const
-				&
+			(	...
 			)
 		{
-			cout << "Did not convert C-File " << rModuleInterface.m_vInterface;
+			cout << "Did not convert File " << rModuleInterface.m_vInterface;
 		}
 	}
 
@@ -722,7 +727,7 @@ auto
 			sFileName = sFileName.substr(sRootModuleName.size()+ 1uz);
 			cout << "Creating new file " << sFileName << " as primary interface for module " << sModuleName << '\n';
 
-			::std::filesystem::path
+			::std::filesystem::path const
 				vInterfacePath
 			=	SourceDir / sFileName
 			;
@@ -767,6 +772,61 @@ auto
 		:	vAllFiles.vImplementationFiles
 		)
 	{
-		cout << "Did not convert implementation file without interface " << rImplementation;
+		try
+		{
+			::std::string
+				sModuleName
+			{	sRootModuleName.begin()
+			,	sRootModuleName.end()
+			};
+
+			auto const
+			vRelativePath
+			=	SourceDir.RelativePath(rImplementation.m_vPath).remove_filename()
+			;
+
+			::std::stringstream
+				vDirectories
+			{	vRelativePath
+			};
+
+			for	(	::std::string
+					sDirectory
+				;	getline
+					(	vDirectories
+					,	sDirectory
+					,	::std::filesystem::path::preferred_separator
+					)
+				;
+				)
+			{
+				//	convert all directories (excluding include and src) to submodules
+				if	(	sDirectory != "src"
+					and	sDirectory != "include"
+					)
+				{
+					sModuleName += '.';
+					sModuleName += sDirectory;
+				}
+			}
+
+			ModuleInterfaceConverter
+				vConverter
+			{	rImplementation.m_vPath
+			,	sModuleName
+			,	""
+			,	rImplementation.GetDependencies()
+			};
+			vConverter.ReadModule
+			(	vModuleInterfaces
+			);
+			vConverter.WriteModule();
+		}
+		catch
+			(	...
+			)
+		{
+			cout << "Did not convert File " << rImplementation;
+		}
 	}
 }

@@ -32,6 +32,8 @@ PRIVATE
 	-Wctad-maybe-unsupported
 	-Werror
 	-Weverything
+	# necessary for bool data members
+	-Wno-padded
 	# using C++23
 	-Wno-c++98-compat-pedantic
 	# using c++23
