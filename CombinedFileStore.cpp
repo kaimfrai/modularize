@@ -201,6 +201,11 @@ auto
 		:	rRootDependencies
 		)
 	{
+		if	(	not exists(rHeaderPath)
+			or not IsHeader(rHeaderPath)
+			)
+			continue;
+
 		vDependentOnHeaders.push_back
 		(	vAllFiles.vHeaderFiles.SwapOut
 			(	HeaderFile{rHeaderPath}
@@ -309,21 +314,28 @@ auto
 				)
 
 			{
+				if	(	not exists(rDependentOnDependency)
+					or	not IsHeader(rDependentOnDependency)
+					)
+					continue;
+
+				HeaderFile header{rDependentOnDependency};
+
 				if	(	//	dont add headers in other directories
 						SourceDir.contains(rDependentOnDependency)
 					and	not
 						vDependentOnHeaders.contains
-						(	rDependentOnDependency
+						(	header
 						)
 					and	not
 						vRequiredHeaders.contains
-						(	rDependentOnDependency
+						(	header
 						)
 					)
 				{
 					vDependentOnHeaders.push_back
 					(	vAllFiles.vHeaderFiles.SwapOut
-						(	HeaderFile{rDependentOnDependency}
+						(	header
 						)
 					);
 				}
