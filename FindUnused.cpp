@@ -264,7 +264,7 @@ auto
 		<	2uz
 		)
 	{
-		::std::cerr << "Path to source directory required as argument!" << ::std::endl;
+		::std::cerr << "Path to source directory, relative binary directory, and optionally explicit uses file required as arguments!" << ::std::endl;
 		::std::exit(EXIT_FAILURE);
 	}
 
@@ -274,8 +274,8 @@ auto
 	auto const
 		vExplicitUse
 	=	vSourceDir
-	/	(	i_vArgument.size() > 1
-		?	i_vArgument[2]
+	/	(	i_vArgument.size() > 2uz
+		?	i_vArgument[2uz]
 		:	"ExplicitUse.fuf"
 		)
 	;

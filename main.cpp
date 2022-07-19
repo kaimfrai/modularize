@@ -7,17 +7,18 @@
 #include <string_view>
 
 static auto constexpr HelpText = R"(
-1st Argument	:	Path to project source directory.
-2nd Argument	:	Path to CMake binary directory relative to the source directory. Must contain depencency files *.o.d. Use -d keepdepfile with ninja to keep those after a successful build.
+--help          :   Display this message.
 
---help			:	Display this message.
---find-unsued	:	Finds C++ files that are unsued in the project.
-					Optional 3rd Argument: File listing explicitly used source files based on which the analysis is performed. Uses SourceDir/ExplicitUse.fuf by default.
---analyze		:	Groups files into adequate modules based on circular dependencies.
+1st Argument    :   Path to project source directory.
+2nd Argument    :   Path to CMake binary directory relative to the source directory. Must contain depencency files *.o.d. Use -d keepdepfile with ninja to keep those after a successful build.
+
+--find-unsued   :   Finds C++ files that are unsued in the project.
+                    Optional 3rd Argument: File listing explicitly used source files based on which the analysis is performed. Uses SourceDir/ExplicitUse.fuf by default.
+--analyze       :   Groups files into adequate modules based on circular dependencies.
 					Mandatory 3rd Argument: The header file based on which circular dependencies are searched.
---modularize	:	Converts all files in the source directory using header includes to C++20 modules on a best effort basis.
-					Mandatory 3rd Argument: The name of the resulting module.
-					Note that forward declarations are not checked and need to be resolved manually.
+--modularize    :   Converts all files in the source directory using header includes to C++20 modules on a best effort basis.
+                    Mandatory 3rd Argument: The name of the resulting module.
+                    Note that forward declarations are not checked and need to be resolved manually.
 )";
 
 auto
@@ -74,7 +75,7 @@ auto
 	}
 	else
 	{
-		::std::cerr << "Unknown option: " << vOption << "Known options:\n" << HelpText << ::std::endl;
+		::std::cerr << "Unknown option: " << vOption << "\nKnown options:\n" << HelpText << ::std::endl;
 		::std::exit(EXIT_FAILURE);
 	}
 }
