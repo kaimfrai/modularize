@@ -1,6 +1,7 @@
 #include "CombinedFileStore.hpp"
 
 #include <iostream>
+#include <ranges>
 #include <span>
 
 (	::Modularize::CombinedFileStore::CombinedFileStore
@@ -94,6 +95,44 @@
 			}
 			++nIncludedCount;
 		}
+	}
+}
+
+auto
+(	::Modularize::CombinedFileStore::SwapOutImplementation
+)	(	std::filesystem::path const
+		&	i_rPath
+	)
+->	ImplementationFile
+{
+	if (	auto const position
+			= vImplementationFiles.find(i_rPath)
+		;	position != vImplementationFiles.end()
+		)
+	{
+		return
+		vImplementationFiles.SwapOut
+		(	position
+		);
+	}
+	else
+	{
+		auto const headerPosition = std::ranges::find_if
+		(	vHeaderFiles
+		,	[	&i_rPath
+			]	(	HeaderFile const
+					&	i_rHeader
+				)
+			{
+				return i_rHeader.m_vImplementation.m_vPath == i_rPath;
+			}
+		);
+		return
+			vHeaderFiles.SwapOut
+			(	headerPosition
+			)
+		.	m_vImplementation
+		;
 	}
 }
 

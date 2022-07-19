@@ -14,7 +14,8 @@ namespace
 		<	typename
 				t_tFile
 		,	CheckFileFunc
-				t_fCheckFile>
+				t_fCheckFile
+		>
 	struct
 		CheckedFileStore
 	;

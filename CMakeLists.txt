@@ -19,6 +19,7 @@ add_executable(
 	Directory.cpp
 	ImplementationFile.cpp
 	ModuleInterfaceConverter.cpp
+	FindUnused.cpp
 )
 target_compile_options(
 	modularize

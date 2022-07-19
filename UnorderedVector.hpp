@@ -29,6 +29,13 @@ namespace
 
 		[[nodiscard]]
 		auto
+		(	empty
+		)	()	const
+		->	bool
+		{	return m_vElements.empty();	}
+
+		[[nodiscard]]
+		auto
 		(	size
 		)	()	const
 		->	size_type
@@ -213,6 +220,19 @@ namespace
 			::std::find_if
 			(	begin()
 			,	end()
+			,	i_rPredicate
+			);
+		}
+
+		auto
+		(	erase_if
+		)	(	auto const
+				&	i_rPredicate
+			)	&
+		->	std::size_t
+		{	return
+			::std::erase_if
+			(	m_vElements
 			,	i_rPredicate
 			);
 		}
