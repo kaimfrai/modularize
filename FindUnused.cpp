@@ -49,80 +49,6 @@ static auto
 	}
 }
 
-static auto
-(	EraseFilesInUse
-)	(	Modularize::CombinedFileStore
-		&	i_rFileStore
-	,	Modularize::Directory const
-		&	i_rPrefix
-	)
-{
-	auto vUnusedHeaders = i_rFileStore.vHeaderFiles;
-	auto vUnusedImplementations = i_rFileStore.vImplementationFiles;
-
-	vUnusedHeaders.erase_if
-	(	[	&i_rFileStore
-		]	(	Modularize::HeaderFile const
-				&	i_rUnusedHeader
-			)
-		{
-			auto const
-				fUsesHeader
-			=	[	&i_rUnusedHeader
-				]	(	auto const
-						&	i_rFile
-					)
-				{	return
-					i_rFile.GetDependencies().contains
-					(	i_rUnusedHeader.m_vPath
-					);
-				}
-			;
-			return
-				std::ranges::any_of
-				(	i_rFileStore.vHeaderFiles
-				,	fUsesHeader
-				)
-			or	std::ranges::any_of
-				(	i_rFileStore.vImplementationFiles
-				,	fUsesHeader
-				)
-			;
-		}
-	);
-
-	vUnusedImplementations.erase_if
-	(	[]	(	Modularize::ImplementationFile const
-				&	i_rImplementation
-			)
-		{
-			// used if it has a dependency path
-			return i_rImplementation.m_vDependency.m_vPath.empty();
-		}
-	);
-
-	PrintUnusedFiles
-	(	i_rPrefix
-	,	vUnusedHeaders
-	,	vUnusedImplementations
-	);
-
-	for	(	auto const
-			&	rUnusedHeader
-		:	vUnusedHeaders
-		)
-	{
-		i_rFileStore.vHeaderFiles.SwapOut(rUnusedHeader);
-	}
-	for	(	auto const
-			&	rUnusedImplementation
-		:	vUnusedImplementations
-		)
-	{
-		i_rFileStore.vImplementationFiles.SwapOut(rUnusedImplementation);
-	}
-}
-
 static auto inline
 (	PopHeaderImplementation
 )	(	Modularize::CombinedFileStore
@@ -136,10 +62,12 @@ static auto inline
 		vPosition
 	=	::std::ranges::find_if
 		(	i_rFileStore.vHeaderFiles
-		,	[i_rHeader]
+		,	[	i_rHeader
+			]
 			(	Modularize::HeaderFile const
 				&	i_rElement
 			)
+			->	bool
 			{
 				return i_rHeader == i_rElement.m_vPath;
 			}
@@ -242,9 +170,13 @@ static auto
 		else
 		if	(IsHeader(vExplicitFile))
 		{
-			i_rFileStore.SwapOutHeader
-			(	vExplicitFile
-			);
+			auto const vHeader
+			=	i_rFileStore.SwapOutHeader
+				(	vExplicitFile
+				)
+			;
+			if (not vHeader.m_vImplementation.m_vPath.empty())
+				i_rImplementationQueue.push(vHeader.m_vImplementation);
 		}
 		else
 		{
@@ -303,8 +235,6 @@ auto
 	,	vSourceDir
 	,	vExplicitUse
 	);
-
-	EraseFilesInUse(vFileStore, vSourceDir);
 
 	FindUnusedFiles
 	(	vFileStore
