@@ -308,6 +308,36 @@ auto
 			,	sPPDirective.begin() + sPPDirective.find_last_of(">\"")
 			};
 
+			//	standard header can be imported
+			if	(	auto const vImportableHeaderIt
+					=	std::ranges::find
+						(	ImportableHeaders
+						,	sInclude
+						)
+				;	(	vImportableHeaderIt
+					!=	end(ImportableHeaders)
+					)
+				)
+			{
+				//	first comment always head comment
+				FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vStandardComment);
+				if	(	auto
+							vInsertPosition
+						=	::std::lower_bound
+							(	m_vStandardImports.begin()
+							,	m_vStandardImports.end()
+							,	sInclude
+							)
+					;	vInsertPosition == m_vStandardImports.end()
+					or	*vInsertPosition != sInclude
+					)
+				{
+					m_vStandardImports.emplace(vInsertPosition, sInclude.begin(), sInclude.end());
+				}
+
+				return &m_vNamedFragment;
+			}
+
 			//	resolve full path first
 			//	there could be multiple files with the same name in different directories
 			if	(	auto const
@@ -319,7 +349,7 @@ auto
 								)
 							->	bool
 							{	return
-								i_rDependencyPath.native().ends_with
+								i_rDependencyPath.filename().native().ends_with
 								(	sInclude
 								);
 							}
@@ -395,36 +425,6 @@ auto
 						{
 							m_vPureImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sModuleName);
 						}
-					}
-
-					return &m_vNamedFragment;
-				}
-				else
-				//	standard header can be imported
-				if	(	auto const importableHeaderIt
-						=	std::ranges::find
-							(	ImportableHeaders
-							,	vPathIt->filename()
-							)
-					;	(	importableHeaderIt
-						!=	end(ImportableHeaders)
-						)
-					)
-				{
-					//	first comment always head comment
-					FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vStandardComment);
-					if	(	auto
-								vInsertPosition
-							=	::std::lower_bound
-								(	m_vStandardImports.begin()
-								,	m_vStandardImports.end()
-								,	sInclude
-								)
-						;	vInsertPosition == m_vStandardImports.end()
-						or	*vInsertPosition != sInclude
-						)
-					{
-						m_vStandardImports.emplace(vInsertPosition, sInclude.begin(), sInclude.end());
 					}
 
 					return &m_vNamedFragment;
