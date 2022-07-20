@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <string>
 
@@ -401,15 +402,12 @@ auto
 				else
 				//	standard header can be imported
 				if	(	auto const importableHeaderIt
-						=	std::ranges::lower_bound
+						=	std::ranges::find
 							(	ImportableHeaders
 							,	vPathIt->filename()
 							)
 					;	(	importableHeaderIt
 						!=	end(ImportableHeaders)
-						)
-					and	(	*importableHeaderIt
-						==	vPathIt->filename()
 						)
 					)
 				{
@@ -736,7 +734,7 @@ auto
 		};
 
 		for	(	::std::string
-				sDirectory
+					sDirectory
 			;	getline
 				(	vDirectories
 				,	sDirectory
@@ -763,93 +761,10 @@ auto
 			//	convert all directories (excluding include and src) to submodules
 			vModuleInterface.m_sModuleName += '.';
 			vModuleInterface.m_sModuleName += sDirectory;
-
-			if	(	// shortest module name is picked for all files in the containing folder
-					std::ranges::any_of
-					(	vModules
-					,	[	&vModuleInterface
-						]	(	auto const
-								&	i_rPair
-							)
-						{
-							return i_rPair.first.starts_with(vModuleInterface.m_sModuleName);
-						}
-					)
-				)
-			{
-				// rest of the folders is partitions
-				while(	getline
-						(	vDirectories
-						,	sDirectory
-						,	::std::filesystem::path::preferred_separator
-						)
-					)
-				{
-					if	(sDirectory == "src")
-					{
-						vModuleInterface.m_bExport = false;
-						continue;
-					}
-					if	(sDirectory == "include")
-						continue;
-
-					if	(	sFileName.starts_with(sDirectory)
-						)
-						sFileName.remove_prefix(sDirectory.size());
-
-					vModuleInterface.m_sPartitionName += sDirectory;
-					vModuleInterface.m_sPartitionName += '.';
-				}
-
-				break;
-			}
 		}
 
 		vModuleInterface.m_sPartitionName += sFileName;
 		auto& rModule = vModules[vModuleInterface.m_sModuleName];
-		auto const sModulePrefix = vModuleInterface.m_sModuleName + ".";
-		// merge modules
-		std::erase_if
-		(	vModules
-		,	[	&rModule
-			,	&sModulePrefix
-			]	(	auto
-					&	i_rPair
-				)
-			{
-				std::string_view const sEraseModuleName = i_rPair.first;
-				bool const bErase
-				=	sEraseModuleName.starts_with(sModulePrefix)
-				;
-				if	(bErase)
-				{
-					auto const sTrimName = sEraseModuleName.substr(sModulePrefix.size());
-					auto& rDestinationVector = rModule.m_vPartitionInterfaces;
-					auto& rSourceVector = i_rPair.second.m_vPartitionInterfaces;
-
-					for	(auto& rPartitionName : rSourceVector)
-					{
-						rPartitionName = std::format("{}.{}", sTrimName, rPartitionName);
-					}
-					rDestinationVector.TakeOver(rSourceVector);
-				}
-
-				return bErase;
-			}
-		);
-
-		for (	auto
-				& rOldModuleInterface
-			:	vModuleInterfaces
-			)
-		{
-			if	(rOldModuleInterface.m_sModuleName.starts_with(sModulePrefix))
-			{
-				auto const sTrimName = std::string_view{rOldModuleInterface.m_sModuleName}.substr(sModulePrefix.size());
-				rOldModuleInterface.m_sPartitionName = std::format("{}.{}", sTrimName, rOldModuleInterface.m_sPartitionName);
-				rOldModuleInterface.m_sModuleName.erase(sModulePrefix.size() - 1uz);
-			}
-		}
 
 		if	(vModuleInterface.m_sPartitionName.empty())
 		{
@@ -864,6 +779,68 @@ auto
 
 		vModuleInterfaces.push_back(vModuleInterface);
 	}
+
+	for	(	auto
+				nIndex = 0uz
+		;	nIndex < vModules.size()
+		;
+		)
+	{
+		auto vIterator = vModules.begin();
+		std::advance(vIterator, nIndex);
+		auto& [sModuleName, vModule] = *vIterator;
+		auto const sModulePrefix = sModuleName + ".";
+		// merge modules
+		auto const
+			nErasedCount
+		=	std::erase_if
+			(	vModules
+			,	[	&rDestinationVector = vModule.m_vPartitionInterfaces
+				,	&sModulePrefix
+				]	(	auto
+						&	i_rPair
+					)
+				{
+					std::string_view const sEraseModuleName = i_rPair.first;
+					bool const bErase
+					=	sEraseModuleName.starts_with(sModulePrefix)
+					;
+					if	(bErase)
+					{
+						auto const sTrimName = sEraseModuleName.substr(sModulePrefix.size());
+						auto& rSourceVector = i_rPair.second.m_vPartitionInterfaces;
+
+						for	(auto& rPartitionName : rSourceVector)
+						{
+							rPartitionName = std::format("{}.{}", sTrimName, rPartitionName);
+						}
+						rDestinationVector.TakeOver(rSourceVector);
+					}
+
+					return bErase;
+				}
+			)
+		;
+
+		for (	auto
+				&	rModuleInterface
+			:	vModuleInterfaces
+			)
+		{
+			if	(rModuleInterface.m_sModuleName.starts_with(sModulePrefix))
+			{
+				auto const sTrimName = std::string_view{rModuleInterface.m_sModuleName}.substr(sModulePrefix.size());
+				rModuleInterface.m_sPartitionName = std::format("{}.{}", sTrimName, rModuleInterface.m_sPartitionName);
+				rModuleInterface.m_sModuleName.erase(sModulePrefix.size() - 1uz);
+			}
+		}
+
+		if (nErasedCount == 0)
+			++nIndex;
+		else
+			nIndex = 0; // restart loop
+	}
+
 
 	for	(	ModuleInterface const
 			&	rModuleInterface
