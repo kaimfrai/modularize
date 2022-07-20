@@ -911,6 +911,8 @@ auto
 		:	vModules
 		)
 	{
+		vModule.m_vPartitionInterfaces.sort();
+
 		if	(vModule.m_vPrimaryInterface.m_vInterface.m_vPath.native().empty())
 		{
 			::std::string
@@ -959,7 +961,15 @@ auto
 		}
 		else
 		{
-			cout << "Designating existing file " << vModule.m_vPrimaryInterface.m_vInterface << " as primary module interface for module " << sModuleName << ". Exports require manual adjustment!\n";
+			cout << "Designating existing file " << vModule.m_vPrimaryInterface.m_vInterface << " as primary module interface for module " << sModuleName << ". Please make sure the following is contained in that file:";
+			for	(	::std::string_view
+						sPartition
+				:	vModule.m_vPartitionInterfaces
+				)
+			{
+				cout << "\n\texport import :" << sPartition << ';';
+			}
+			cout << '\n';
 		}
 	}
 
