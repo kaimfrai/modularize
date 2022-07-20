@@ -338,6 +338,11 @@ auto
 				return &m_vNamedFragment;
 			}
 
+			std::filesystem::path
+				vFullIncludePath
+			=	sInclude
+			;
+
 			//	resolve full path first
 			//	there could be multiple files with the same name in different directories
 			if	(	auto const
@@ -349,8 +354,8 @@ auto
 								)
 							->	bool
 							{	return
-								i_rDependencyPath.filename().native().ends_with
-								(	sInclude
+								(	i_rDependencyPath.filename().native()
+								==	sInclude
 								);
 							}
 						)
@@ -358,77 +363,124 @@ auto
 				!=	m_rDependencies.end()
 				)
 			{
-				if	(	auto const
-							vImportedModuleInterfaceIt
-						=	i_rModuleInterfaces.find_if
-							(	[	&rPath
-									=	*vPathIt
-								]	(	ModuleInterface const
-										&	i_rModuleInterface
-									)
-								->	bool
-								{	return
-										i_rModuleInterface.m_vInterface.m_vPath
-									==	rPath
-									;
-								}
-							)
-					;	vImportedModuleInterfaceIt
-					!=	i_rModuleInterfaces.end()
-					)
-				{
-					if	(	not
-							vImportedModuleInterfaceIt->m_sPartitionName.empty()
-						and	(	vImportedModuleInterfaceIt->m_sModuleName
-							==	m_sModuleName
-							)
+				vFullIncludePath = *vPathIt;
+			}
+
+			auto const
+				vImportedModuleInterfaceIt
+			=	[	&i_rModuleInterfaces
+				,	&rDependencies = this->m_rDependencies
+				,	&sInclude
+				]{
+					//	attempt to resolve full path first
+					//	there could be multiple files with the same name in different directories
+					if	(	auto const
+								vPathIt
+							=	rDependencies.find_if
+								(	[	sInclude
+									]	(	::std::filesystem::path const
+											&	i_rDependencyPath
+										)
+									->	bool
+									{	return
+											i_rDependencyPath.native()
+										.	ends_with(sInclude)
+										;
+									}
+								)
+						;	vPathIt
+						!=	rDependencies.end()
 						)
 					{
-						//	first comment always head comment
-						FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vPartitionComment);
-						if	(	vImportedModuleInterfaceIt->m_sPartitionName
-							==	m_sPartitionName
-							)
-						{
-							//	no import of self
-							return &m_vNamedFragment;
-						}
-						else
-						if	(	auto
-									vInsertPosition
-								=	::std::lower_bound
-									(	m_vPartitionImports.begin()
-									,	m_vPartitionImports.end()
-									,	vImportedModuleInterfaceIt->m_sPartitionName
-									)
-							;	vInsertPosition == m_vPartitionImports.end()
-							or	*vInsertPosition != vImportedModuleInterfaceIt->m_sPartitionName
-							)
-						{
-							m_vPartitionImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sPartitionName);
-						}
+						return
+						i_rModuleInterfaces.find_if
+						(	[	&vFullIncludePath = *vPathIt
+							]	(	ModuleInterface const
+									&	i_rModuleInterface
+								)
+							->	bool
+							{	return
+									i_rModuleInterface.m_vInterface.m_vPath
+								==	vFullIncludePath
+								;
+							}
+						);
 					}
 					else
 					{
-						//	first comment always head comment
-						FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vImportComment);
-						if	(	auto
-									vInsertPosition
-								=	::std::lower_bound
-									(	m_vPureImports.begin()
-									,	m_vPureImports.end()
-									,	vImportedModuleInterfaceIt->m_sModuleName
-									)
-							;	vInsertPosition == m_vPureImports.end()
-							or	*vInsertPosition != vImportedModuleInterfaceIt->m_sModuleName
-							)
-						{
-							m_vPureImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sModuleName);
-						}
+						// fallback on simple suffix
+						return
+						i_rModuleInterfaces.find_if
+						(	[	&sInclude
+							]	(	ModuleInterface const
+									&	i_rModuleInterface
+								)
+							->	bool
+							{	return
+									i_rModuleInterface.m_vInterface.m_vPath.native()
+								.	ends_with(sInclude)
+								;
+							}
+						);
 					}
+				}()
+			;
 
-					return &m_vNamedFragment;
+			if	(	vImportedModuleInterfaceIt
+				!=	i_rModuleInterfaces.end()
+				)
+			{
+				if	(	not
+						vImportedModuleInterfaceIt->m_sPartitionName.empty()
+					and	(	vImportedModuleInterfaceIt->m_sModuleName
+						==	m_sModuleName
+						)
+					)
+				{
+					//	first comment always head comment
+					FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vPartitionComment);
+					if	(	vImportedModuleInterfaceIt->m_sPartitionName
+						==	m_sPartitionName
+						)
+					{
+						//	no import of self
+						return &m_vNamedFragment;
+					}
+					else
+					if	(	auto
+								vInsertPosition
+							=	::std::lower_bound
+								(	m_vPartitionImports.begin()
+								,	m_vPartitionImports.end()
+								,	vImportedModuleInterfaceIt->m_sPartitionName
+								)
+						;	vInsertPosition == m_vPartitionImports.end()
+						or	*vInsertPosition != vImportedModuleInterfaceIt->m_sPartitionName
+						)
+					{
+						m_vPartitionImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sPartitionName);
+					}
 				}
+				else
+				{
+					//	first comment always head comment
+					FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vImportComment);
+					if	(	auto
+								vInsertPosition
+							=	::std::lower_bound
+								(	m_vPureImports.begin()
+								,	m_vPureImports.end()
+								,	vImportedModuleInterfaceIt->m_sModuleName
+								)
+						;	vInsertPosition == m_vPureImports.end()
+						or	*vInsertPosition != vImportedModuleInterfaceIt->m_sModuleName
+						)
+					{
+						m_vPureImports.insert(vInsertPosition, vImportedModuleInterfaceIt->m_sModuleName);
+					}
+				}
+
+				return &m_vNamedFragment;
 			}
 
 			//	first comment always head comment
