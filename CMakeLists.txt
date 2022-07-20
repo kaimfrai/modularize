@@ -21,27 +21,3 @@ add_executable(
 	ModuleInterfaceConverter.cpp
 	FindUnused.cpp
 )
-target_compile_options(
-	modularize
-PRIVATE
-	-Wall
-	-Wextra
-	-Wpedantic
-	-Wconversion
-	-Wdeprecated
-	-Wmissing-variable-declarations
-	-Wctad-maybe-unsupported
-	-Werror
-	-Weverything
-	# necessary for bool data members
-	-Wno-padded
-	# using C++23
-	-Wno-c++98-compat-pedantic
-	# using c++23
-	-Wno-c++20-compat-pedantic
-)
-target_link_options(
-	modularize
-PUBLIC
-	-fuse-ld=lld
-)

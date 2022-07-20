@@ -3,10 +3,94 @@
 #include "HeaderFile.hpp"
 #include "UnorderedVector.hpp"
 
+#include <algorithm>
+#include <format>
 #include <fstream>
 #include <map>
 #include <string>
 
+static std::string_view constexpr ImportableHeaders[]
+{	"algorithm"
+,	"any"
+,	"array"
+,	"atomic"
+,	"barrier"
+,	"bit"
+,	"bitset"
+,	"charconv"
+,	"chrono"
+,	"codecvt"
+,	"compare"
+,	"complex"
+,	"concepts"
+,	"condition_variable"
+,	"coroutine"
+,	"deque"
+,	"exception"
+,	"execution"
+,	"expected"
+,	"filesystem"
+,	"format"
+,	"forward_list"
+,	"fstream"
+,	"functional"
+,	"future"
+,	"initializer_list"
+,	"iomanip"
+,	"ios"
+,	"iosfwd"
+,	"iostream"
+,	"istream"
+,	"iterator"
+,	"latch"
+,	"limits"
+,	"list"
+,	"locale"
+,	"map"
+,	"memory"
+,	"memory_resource"
+,	"mutex"
+,	"new"
+,	"numbers"
+,	"numeric"
+,	"optional"
+,	"ostream"
+,	"queue"
+,	"random"
+,	"ranges"
+,	"ratio"
+,	"regex"
+,	"scoped_allocator"
+,	"semaphore"
+,	"set"
+,	"shared_mutex"
+,	"source_location"
+,	"span"
+,	"spanstream"
+,	"sstream"
+,	"stack"
+,	"stacktrace"
+,	"stdexcept"
+,	"stop_token"
+,	"streambuf"
+,	"string"
+,	"string_view"
+,	"strstream"
+,	"syncstream"
+,	"system_error"
+,	"thread"
+,	"tuple"
+,	"typeindex"
+,	"typeinfo"
+,	"type_traits"
+,	"unordered_map"
+,	"unordered_set"
+,	"utility"
+,	"valarray"
+,	"variant"
+,	"vector"
+,	"version"
+};
 
 auto
 (	::Modularize::ModuleInterfaceConverter::FlushPending
@@ -270,7 +354,7 @@ auto
 						)
 					{
 						//	first comment always head comment
-						FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vPartitionComment);
+						FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vPartitionComment);
 						if	(	vImportedModuleInterfaceIt->m_sPartitionName
 							==	m_sPartitionName
 							)
@@ -296,7 +380,7 @@ auto
 					else
 					{
 						//	first comment always head comment
-						FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vImportComment);
+						FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vImportComment);
 						if	(	auto
 									vInsertPosition
 								=	::std::lower_bound
@@ -316,12 +400,21 @@ auto
 				}
 				else
 				//	standard header can be imported
-				if	(	vPathIt->extension().native()
-					==	""
+				if	(	auto const importableHeaderIt
+						=	std::ranges::lower_bound
+							(	ImportableHeaders
+							,	vPathIt->filename()
+							)
+					;	(	importableHeaderIt
+						!=	end(ImportableHeaders)
+						)
+					and	(	*importableHeaderIt
+						==	vPathIt->filename()
+						)
 					)
 				{
 					//	first comment always head comment
-					FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vStandardComment);
+					FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vStandardComment);
 					if	(	auto
 								vInsertPosition
 							=	::std::lower_bound
@@ -341,7 +434,7 @@ auto
 			}
 
 			//	first comment always head comment
-			FlushPending(m_vHeadComment.view().empty() ? m_vHeadComment : m_vGlobalFragment);
+			FlushPending(m_vHeadComment.str().empty() ? m_vHeadComment : m_vGlobalFragment);
 			//	no module interface found => global header
 			m_vGlobalFragment << i_vLine << '\n';
 			return &m_vGlobalFragment;
@@ -366,7 +459,6 @@ auto
 
 		//	heuristic for global entities
 		if	(	sNoWhitespace.starts_with("namespace")
-			or	sNoWhitespace.starts_with("extern")
 			or	sNoWhitespace.starts_with("typedef")
 			or	sNoWhitespace.starts_with("using")
 			or	sNoWhitespace.starts_with("class")
@@ -390,14 +482,24 @@ auto
 			or	sNoWhitespace.starts_with("signed")
 			or	sNoWhitespace.starts_with("std::")
 			or	sNoWhitespace.starts_with("::std::")
+			or	// export required before attribute
+				sNoWhitespace.starts_with("[[")
 			)
 		{
 			m_vNamedFragment << '\n';
-				FlushPending(m_vNamedFragment)
+			(	FlushPending(m_vNamedFragment)
 			<<	m_sExportEntity
 			<< i_vLine << '\n'
-			;
+			);
 			return &m_vNamedFragment;
+		}
+
+		if	(sNoWhitespace.starts_with("extern"))
+		{
+			(	FlushPending(m_vGlobalFragment)
+			<<	i_vLine << '\n'
+			);
+			return &m_vGlobalFragment;
 		}
 	}
 
@@ -414,8 +516,8 @@ auto
 {
 	::std::ifstream
 		vContent
-	=	m_rFilePath
-	;
+	{	m_rFilePath
+	};
 
 	::std::string
 		sLine
@@ -452,13 +554,13 @@ auto
 {
 	::std::ofstream
 		vWriter
-	=	m_rFilePath
-	;
+	{	m_rFilePath
+	};
 
 	if	(	not
-			m_vHeadComment.view
-			().	empty
-			()
+				m_vHeadComment.str()
+			.	empty
+				()
 		)
 	{
 			vWriter
@@ -469,9 +571,9 @@ auto
 	}
 
 	if	(	not
-			m_vGlobalFragment.view
-			().	empty
-			()
+				m_vGlobalFragment.str()
+			.	empty
+				()
 		)
 	{		vWriter
 		<<	"module;\n\n"
@@ -623,6 +725,7 @@ auto
 		=	{	sRootModuleName.begin()
 			,	sRootModuleName.end()
 			}
+		,	.m_sPartitionName = ""
 		,	.m_bExport = true
 		};
 
@@ -642,6 +745,14 @@ auto
 			;
 			)
 		{
+			if	(sDirectory == "src")
+			{
+				vModuleInterface.m_bExport = false;
+				continue;
+			}
+			if	(sDirectory == "include")
+				continue;
+
 			//	trim matching submodule names from file name to create the partition name
 			//	the partition name may end up empty, in which case the file is assumed to be
 			//	the primary module interface
@@ -650,19 +761,96 @@ auto
 				sFileName.remove_prefix(sDirectory.size());
 
 			//	convert all directories (excluding include and src) to submodules
-			if	(	sDirectory != "src"
-				and	sDirectory != "include"
+			vModuleInterface.m_sModuleName += '.';
+			vModuleInterface.m_sModuleName += sDirectory;
+
+			if	(	// shortest module name is picked for all files in the containing folder
+					std::ranges::any_of
+					(	vModules
+					,	[	&vModuleInterface
+						]	(	auto const
+								&	i_rPair
+							)
+						{
+							return i_rPair.first.starts_with(vModuleInterface.m_sModuleName);
+						}
+					)
 				)
 			{
-				vModuleInterface.m_sModuleName += '.';
-				vModuleInterface.m_sModuleName += sDirectory;
+				// rest of the folders is partitions
+				while(	getline
+						(	vDirectories
+						,	sDirectory
+						,	::std::filesystem::path::preferred_separator
+						)
+					)
+				{
+					if	(sDirectory == "src")
+					{
+						vModuleInterface.m_bExport = false;
+						continue;
+					}
+					if	(sDirectory == "include")
+						continue;
+
+					if	(	sFileName.starts_with(sDirectory)
+						)
+						sFileName.remove_prefix(sDirectory.size());
+
+					vModuleInterface.m_sPartitionName += sDirectory;
+					vModuleInterface.m_sPartitionName += '.';
+				}
+
+				break;
 			}
-			if	(sDirectory == "src")
-				vModuleInterface.m_bExport = false;
 		}
 
-		vModuleInterface.m_sPartitionName = sFileName;
+		vModuleInterface.m_sPartitionName += sFileName;
 		auto& rModule = vModules[vModuleInterface.m_sModuleName];
+		auto const sModulePrefix = vModuleInterface.m_sModuleName + ".";
+		// merge modules
+		std::erase_if
+		(	vModules
+		,	[	&rModule
+			,	&sModulePrefix
+			]	(	auto
+					&	i_rPair
+				)
+			{
+				std::string_view const sEraseModuleName = i_rPair.first;
+				bool const bErase
+				=	sEraseModuleName.starts_with(sModulePrefix)
+				;
+				if	(bErase)
+				{
+					auto const sTrimName = sEraseModuleName.substr(sModulePrefix.size());
+					auto& rDestinationVector = rModule.m_vPartitionInterfaces;
+					auto& rSourceVector = i_rPair.second.m_vPartitionInterfaces;
+
+					for	(auto& rPartitionName : rSourceVector)
+					{
+						rPartitionName = std::format("{}.{}", sTrimName, rPartitionName);
+					}
+					rDestinationVector.TakeOver(rSourceVector);
+				}
+
+				return bErase;
+			}
+		);
+
+		for (	auto
+				& rOldModuleInterface
+			:	vModuleInterfaces
+			)
+		{
+			if	(rOldModuleInterface.m_sModuleName.starts_with(sModulePrefix))
+			{
+				auto const sTrimName = std::string_view{rOldModuleInterface.m_sModuleName}.substr(sModulePrefix.size());
+				rOldModuleInterface.m_sPartitionName = std::format("{}.{}", sTrimName, rOldModuleInterface.m_sPartitionName);
+				rOldModuleInterface.m_sModuleName.erase(sModulePrefix.size() - 1uz);
+			}
+		}
+
 		if	(vModuleInterface.m_sPartitionName.empty())
 		{
 			rModule.m_vPrimaryInterface = vModuleInterface;
@@ -694,16 +882,11 @@ auto
 			if	(not rModuleInterface.m_vInterface.IsHeaderOnly())
 			{
 				// cannot share the same partitionname among multiple module units!
-				::std::string const
-					sPartitionName
-				=	rModuleInterface.m_sPartitionName
-				+	".Obj"
-				;
 				ModuleInterfaceConverter
 					vImplementationConverter
 				{	rModuleInterface.m_vInterface.m_vImplementation.m_vPath
 				,	rModuleInterface.m_sModuleName
-				,	sPartitionName
+				,	/*no partition name*/ ""
 				,	rModuleInterface.m_vInterface.m_vImplementation.GetDependencies()
 				};
 				vImplementationConverter.ReadModule

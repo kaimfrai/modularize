@@ -30,7 +30,14 @@ namespace
 			,	DependencyFile const
 				&	i_rRight
 			)
-		{	return i_rLeft.m_vPath <=> i_rRight.m_vPath;	}
+		->	std::weak_ordering
+		{	auto const nCmp = i_rLeft.m_vPath.native().compare(i_rRight.m_vPath.native());
+			if (nCmp < 0)
+				return std::weak_ordering::less;
+			if (nCmp > 0)
+				return std::weak_ordering::greater;
+			return std::weak_ordering::equivalent;
+		}
 
 		explicit(false)
 		(	DependencyFile

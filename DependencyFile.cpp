@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 static auto inline
 (	ReadEntry
@@ -32,8 +33,9 @@ static auto inline
 	}
 {
 	::std::ifstream
-		vFile = i_rPath
-	;
+		vFile
+	{	i_rPath
+	};
 	::std::string
 		vLine
 	;

@@ -292,6 +292,22 @@ namespace
 		}
 
 		auto
+		(	TakeOver
+		)	(	UnorderedVector
+				&	i_rSource
+			)
+		{
+			m_vElements.reserve(size() + i_rSource.size());
+
+			m_vElements.insert
+			(	m_vElements.end()
+			,	std::make_move_iterator(i_rSource.begin())
+			,	std::make_move_iterator(i_rSource.end())
+			);
+			i_rSource.m_vElements.clear();
+		}
+
+		auto
 		(	SwapOut
 		)	(	iterator
 					i_vPosition

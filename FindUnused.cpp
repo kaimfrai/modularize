@@ -140,8 +140,9 @@ static auto
 {
 	using namespace Modularize;
 	::std::ifstream
-		vFile = i_rExplicitUse
-	;
+		vFile
+	{	i_rExplicitUse
+	};
 	::std::string
 		sExplicit
 	;
