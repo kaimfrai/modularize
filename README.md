@@ -34,6 +34,7 @@ Für das Erstellen des Projektes folgende Befehle im Projektordner ausführen:
 
 ## Voraussetzung
 Abhängigkeits-Dateien müssen im Zielprojekt existieren. Mit Ninja kann dies mittels
+
 ```
 > ninja -d keepdepfile
 ```
@@ -41,6 +42,7 @@ erreicht werden.
 
 ## Anwendung
 Im Ordner build nach Erstellen des Programmes einen folgender Befehle Ausführen:
+
 ```
 ./modularize --find-unused "Pfad/zum/Quellcode" "relativer/Pfad/zu/BinärDateien" "relativer/Pfad/zu/expliziten/Dateien (optional)"
 ./modularize --analyze "Pfad/zum/Quellcode" "relativer/Pfad/zu/BinärDateien" "relativer/Pfad/zu/einem/Header"
