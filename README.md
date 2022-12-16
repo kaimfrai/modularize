@@ -1,29 +1,27 @@
 # Modularize
 
 ## Überblick
-Diese Projekt erstellt das Programm modularize. Sein primäres Ziel ist dabei zu helfen, ein C++ Projekt mit C++20 Modulen zu modernisieren. Es stehen 3 Optionen zur Auswahl:
+This project provides the program modulularize. Its primary goal is to help modernize a C++ project using C++20 Modules. There are 3 options to choose from:
 
 ```--find-unsued```
 
-Findet Dateien im Projekt, die nicht benötigt werden. Es ist möglich, eine Liste von explizit benötigten Dateien anzulegen. Hierfür wird standardmäßig eine Datei ExplicitUse.fuf geladen.
+Finds files in the project which are no longer needed. It's possible to specify a list of explicitly required files. By default, a file ExplicitUse.fuf will be loaded.
 
 ```--analyse```
-
-Gruppiert Dateien in Module entsprechend zyklischer Abhängigkeiten. Geht von einer Datei aus und unterteil Dateien in verschiedene Kategorien, entsprechend ihrer Relation zur ersten Datei.
+Groups together files with cyclic dependencies into modules. Starts from one file and categorizes other files based on their dependencies to the first file.
 
 ```--modularize```
+Converts all C++ files in the project based on their #include directives to using C++20 modules. Converted files may require manual adjustments as this is a prototype and not perfect. Hower, it will lower the work load of transitioning significantly.
 
-Konvertiert alle Dateien eines Projektes anhand von #include Anweisungen. Konvertierte Dateien benötigen gegebenenfalls manuelle Anpassungen.
+## Dependencies
 
-## Abhängigkeiten
-
-- cmake >3.20
-- clang =15
+- cmake >=3.20
+- clang >=15
 - ninja-build
 
-## Erstellen
+## Build
 
-Für das Erstellen des Projektes folgende Befehle im Projektordner ausführen: 
+To build the project sue the following commands in the project directory:
 
 ```
 > mkdir build
@@ -32,19 +30,18 @@ Für das Erstellen des Projektes folgende Befehle im Projektordner ausführen:
 > ninja -d keepdepfile
 ``` 
 
-## Voraussetzung
-Abhängigkeits-Dateien müssen im Zielprojekt existieren. Mit Ninja kann dies mittels
+## Requirements
+Dependency files must exist in the project. Ninja may generate these with the following command:
 
 ```
 > ninja -d keepdepfile
 ```
-erreicht werden.
 
-## Anwendung
-Im Ordner build nach Erstellen des Programmes einen folgender Befehle Ausführen:
+## Application
+Go to the build directory and execute the following commands after adjusting the paths to your project.
 
 ```
-./modularize --find-unused "Pfad/zum/Quellcode" "relativer/Pfad/zu/BinärDateien" "relativer/Pfad/zu/expliziten/Dateien (optional)"
-./modularize --analyze "Pfad/zum/Quellcode" "relativer/Pfad/zu/BinärDateien" "relativer/Pfad/zu/einem/Header"
-./modularize --convert "Pfad/zum/Quellcode" "relativer/Pfad/zu/BinärDateien" "Gewünschter.Wurzel.Modul.Name"
+./modularize --find-unused "path/to/source" "relative/path/to/binaries" "relative/path/to/explicit/file (optional)"
+./modularize --analyze "path/to/source" "relative/path/to/binaries" "relative/path/to/some/header"
+./modularize --convert "path/to/source" "relative/path/to/binaries" "Desired.Root.Module.Name"
 ```
