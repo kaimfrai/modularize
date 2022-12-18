@@ -36,9 +36,15 @@ auto
 		::std::exit(EXIT_FAILURE);
 	}
 
+	::std::span<char const*>
+		vArguments
+	{	argv
+	,	static_cast<::std::size_t>(argc)
+	};
+
 	::std::string_view const
 		vOption
-	=	argv[1]
+	=	vArguments[1uz]
 	;
 
 	if ((vOption == "--help") or (vOption == "-h"))
@@ -47,11 +53,9 @@ auto
 		std::exit(EXIT_SUCCESS);
 	}
 
-	::std::span<char const*> const
 		vArguments
-	{	argv + 2uz
-	,	static_cast<::std::size_t>(argc) - 2uz
-	};
+	=	vArguments.subspan(2uz)
+	;
 
 	if	(vOption == "--analyze")
 	{

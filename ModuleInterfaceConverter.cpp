@@ -152,7 +152,7 @@ auto
 			=	'\n'
 		;	char
 				vCurrentChar
-		:	i_vLine
+		:	std::span{i_vLine}
 		)
 	{
 			m_nBlockCommentCounter
